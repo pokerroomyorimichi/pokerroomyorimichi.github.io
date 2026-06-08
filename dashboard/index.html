@@ -171,8 +171,17 @@ let   summaryData, salesMonthly, salesDaily;
 // ===== API =====
 async function api(action, params = {}) {
   const qs = new URLSearchParams({ action, ...params }).toString();
-  const r  = await fetch(`${GAS_URL}?${qs}`);
-  return r.json();
+  try {
+    const r    = await fetch(`${GAS_URL}?${qs}`);
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { ok: false, error: 'JSONパースエラー: ' + text.slice(0, 200) };
+    }
+  } catch (err) {
+    return { ok: false, error: 'ネットワーク/CORSエラー: ' + err.message };
+  }
 }
 
 // ===== TABS =====
@@ -198,11 +207,15 @@ function badge(rate) {
 
 // ===== SUMMARY =====
 async function loadSummary() {
-  const d = await api('summary');
-  if (!d.ok) { document.getElementById('summary-body').innerHTML = `<p style="color:var(--red);padding:40px">エラー: ${d.error}</p>`; return; }
-  summaryData = d;
-  document.getElementById('updated-at').textContent = '最終更新: ' + d.updatedAt;
-  renderSummary(d);
+  try {
+    const d = await api('summary');
+    if (!d.ok) { document.getElementById('summary-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ エラー: ${d.error}</div>`; return; }
+    summaryData = d;
+    document.getElementById('updated-at').textContent = '最終更新: ' + d.updatedAt;
+    renderSummary(d);
+  } catch (err) {
+    document.getElementById('summary-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ 読み込みエラー: ${err.message}</div>`;
+  }
 }
 
 function renderSummary(d) {
@@ -286,13 +299,18 @@ function renderSummary(d) {
 // ===== SALES =====
 async function loadSales() {
   document.getElementById('sales-body').innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中...</div>';
-  const [m, d] = await Promise.all([
-    api('sales', { period: 'monthly' }),
-    api('sales', { period: 'daily',   months: 2 }),
-  ]);
-  salesMonthly = m.data || [];
-  salesDaily   = d.data || [];
-  renderSales('monthly');
+  try {
+    const [m, d] = await Promise.all([
+      api('sales', { period: 'monthly' }),
+      api('sales', { period: 'daily',   months: 2 }),
+    ]);
+    if (!m.ok) { document.getElementById('sales-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ エラー: ${m.error}</div>`; return; }
+    salesMonthly = m.data || [];
+    salesDaily   = d.data || [];
+    renderSales('monthly');
+  } catch (err) {
+    document.getElementById('sales-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ 読み込みエラー: ${err.message}</div>`;
+  }
 }
 
 function renderSales(mode) {
