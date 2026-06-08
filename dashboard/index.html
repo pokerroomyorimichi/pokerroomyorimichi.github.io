@@ -513,7 +513,16 @@ async function loadAll() {
   if (active === 'prediction') loadPrediction();
 }
 
-loadAll();
+// 起動確認
+document.getElementById('updated-at').textContent = 'JS起動確認OK - GAS呼び出し中...';
+
+loadAll().catch(err => {
+  document.getElementById('summary-body').innerHTML =
+    `<div style="color:#ff5733;padding:40px;font-size:13px;line-height:2">
+      ⚠ 起動エラー: ${err.message}<br>
+      スタック: ${err.stack || '不明'}
+    </div>`;
+});
 </script>
 </body>
 </html>
