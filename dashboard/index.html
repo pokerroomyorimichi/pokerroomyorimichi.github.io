@@ -169,19 +169,26 @@ const charts = {};
 let   summaryData, salesMonthly, salesDaily;
 
 // ===== API =====
-async function api(action, params = {}) {
-  const qs = new URLSearchParams({ action, ...params }).toString();
-  try {
-    const r    = await fetch(`${GAS_URL}?${qs}`);
-    const text = await r.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { ok: false, error: 'JSONパースエラー: ' + text.slice(0, 200) };
-    }
-  } catch (err) {
-    return { ok: false, error: 'ネットワーク/CORSエラー: ' + err.message };
-  }
+// JSONP方式でGASを呼び出す（CORS不要・タイムアウト25秒）
+function api(action, params = {}) {
+  return new Promise((resolve) => {
+    const cbName = '_cb' + Date.now() + Math.random().toString(36).slice(2);
+    const qs     = new URLSearchParams({ action, callback: cbName, ...params }).toString();
+    const script = document.createElement('script');
+    const timer  = setTimeout(() => {
+      cleanup();
+      resolve({ ok: false, error: 'タイムアウト（25秒）。GASの実行に時間がかかっています。' });
+    }, 25000);
+    const cleanup = () => {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); resolve({ ok: false, error: 'スクリプト読み込みエラー。GAS URLを確認してください。' }); };
+    script.src = `${GAS_URL}?${qs}`;
+    document.head.appendChild(script);
+  });
 }
 
 // ===== TABS =====
