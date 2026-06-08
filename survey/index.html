@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>YORIMICHI アンケート</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#3E3A39;--card:#2d2926;--card2:#231f1d;
+  --red:#E63B10;--red-d:#c42e08;
+  --text:#EFEFEF;--sub:#a09a97;
+  --border:rgba(239,239,239,0.12);
+  --r:12px;--shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Noto Sans JP',sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:24px 16px;min-height:100vh}
+.wrap{width:100%;max-width:420px}
+
+.logo{text-align:center;margin-bottom:28px}
+.logo-title{font-size:26px;font-weight:700;letter-spacing:5px}
+.logo-title span{color:var(--red)}
+.logo-sub{font-size:11px;color:var(--sub);letter-spacing:3px;margin-top:6px}
+
+.card{background:var(--card);border-radius:var(--r);padding:24px;box-shadow:var(--shadow)}
+
+.progress{display:flex;gap:8px;margin-bottom:24px}
+.pstep{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .3s}
+.pstep.on{background:var(--red)}
+
+.q-step{font-size:12px;color:var(--sub);font-weight:500;letter-spacing:.5px;margin-bottom:6px}
+.q-title{font-size:16px;font-weight:700;line-height:1.55;margin-bottom:6px}
+.q-note{font-size:12px;color:var(--sub);margin-bottom:16px}
+
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{
+  display:flex;align-items:center;gap:12px;
+  background:var(--card2);border:1.5px solid var(--border);border-radius:10px;
+  padding:13px 15px;cursor:pointer;transition:border-color .15s,background .15s;
+  user-select:none;
+}
+.opt:active{transform:scale(.985)}
+.opt.sel{border-color:var(--red);background:rgba(230,59,16,.08)}
+.mark{
+  width:20px;height:20px;flex-shrink:0;border-radius:50%;border:2px solid var(--sub);
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.checkbox .mark{border-radius:5px}
+.opt.sel .mark{background:var(--red);border-color:var(--red)}
+.checkmark{display:none;width:11px;height:11px}
+.opt.sel .checkmark{display:block}
+.opt-text{font-size:14px;font-weight:500;line-height:1.4}
+
+.btn{
+  width:100%;padding:15px;border-radius:10px;border:none;
+  font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;
+  letter-spacing:.5px;margin-top:22px;transition:all .2s;
+}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-d)}
+.btn-red:active{transform:scale(.98)}
+.btn-red:disabled{background:#4a2e28;color:#666;cursor:not-allowed;transform:none}
+.btn-back{background:transparent;border:1.5px solid var(--border);color:var(--sub);margin-top:10px}
+
+.view{display:none}
+.view.on{display:block}
+
+.done-wrap{text-align:center;padding:12px 0}
+.done-icon{margin-bottom:18px}
+.done-logo{width:110px;height:110px;border-radius:50%;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+.done-title{font-size:20px;font-weight:700;margin-bottom:10px}
+.done-body{font-size:14px;color:var(--sub);line-height:1.7;margin-bottom:24px}
+.countdown{font-size:13px;color:var(--sub)}
+.countdown span{font-size:30px;font-weight:700;color:var(--text);display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="logo">
+    <div class="logo-title">YORI<span>M</span>ICHI</div>
+    <div class="logo-sub">POKER ROOM · NUMAZU</div>
+  </div>
+
+  <div class="card">
+
+    <!-- Q1 流入経路 -->
+    <div class="view on" id="v-q1">
+      <div class="progress">
+        <div class="pstep on"></div>
+        <div class="pstep"></div>
+        <div class="pstep"></div>
+      </div>
+      <div class="q-step">質問 1 / 3</div>
+      <div class="q-title">YORIMICHIをどこでお知りになりましたか？</div>
+      <div class="q-note">複数選択できます</div>
+      <div class="opts" id="opts-ref"></div>
+      <button class="btn btn-red" id="btn-q1-next" onclick="goQ2()" disabled>次へ</button>
+    </div>
+
+    <!-- Q2 来店の決め手 -->
+    <div class="view" id="v-q2">
+      <div class="progress">
+        <div class="pstep on"></div>
+        <div class="pstep on"></div>
+        <div class="pstep"></div>
+      </div>
+      <div class="q-step">質問 2 / 3</div>
+      <div class="q-title">今回ご来店の決め手は何ですか？</div>
+      <div class="q-note">複数選択できます</div>
+      <div class="opts" id="opts-mot"></div>
+      <button class="btn btn-red" id="btn-q2-next" onclick="goQ3()" disabled>次へ</button>
+      <button class="btn btn-back" onclick="goQ1()">← 戻る</button>
+    </div>
+
+    <!-- Q3 ポーカー経験 -->
+    <div class="view" id="v-q3">
+      <div class="progress">
+        <div class="pstep on"></div>
+        <div class="pstep on"></div>
+        <div class="pstep on"></div>
+      </div>
+      <div class="q-step">質問 3 / 3</div>
+      <div class="q-title">ポーカーのご経験を教えてください</div>
+      <div class="q-note"> </div>
+      <div class="opts" id="opts-exp"></div>
+      <button class="btn btn-red" id="btn-submit" onclick="doSubmit()" disabled>登録へ進む</button>
+      <button class="btn btn-back" onclick="goQ2()">← 戻る</button>
+    </div>
+
+    <!-- 完了 -->
+    <div class="view" id="v-done">
+      <div class="done-wrap">
+        <div class="done-icon"><img src="logo.png" class="done-logo" alt="YORIMICHI"></div>
+        <div class="done-title">ありがとうございます！</div>
+        <div class="done-body">アンケートへのご回答<br>ありがとうございました。<br>続けてアカウント登録をお願いします。</div>
+        <div class="countdown">
+          <span id="cnt">3</span>
+          秒後に登録ページへ移動します
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ========================================================
+// ★ GAS をデプロイ後、ウェブアプリURLをここに貼り付ける
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwwH3q2ynIl_PoHLYGn65rvJQOnGrZFdb2zH-jRry_TWmBW3Ug-UFpFJNwynz-5nrmfIQ/exec';
+// ========================================================
+
+const REFERRAL_OPTIONS = [
+  'Instagramの投稿',
+  'Instagramの広告',
+  'X（Twitter）',
+  '友人・知人の紹介',
+  'Google検索',
+  'Googleマップ・口コミ',
+  '看板・チラシ',
+  'その他'
+];
+
+const MOTIVE_OPTIONS = [
+  'Instagramの投稿を見て',
+  'Instagramの広告を見て',
+  'X（旧Twitter）の投稿を見て',
+  '友人・知人に紹介されて',
+  'Google等で検索して',
+  'Googleマップ・口コミを見て',
+  '看板・チラシを見て',
+  '以前来たことがあって',
+  'その他'
+];
+
+const EXPERIENCE_OPTIONS = [
+  '未経験（初めて）',
+  '初心者（数回程度）',
+  '経験者（定期的にプレイ）',
+  '上級者（競技経験あり）'
+];
+
+const PPP_URL = 'https://ppp.arkadia.bet/login';
+
+let selRef = new Set();
+let selMot = new Set();
+let selExp = '';
+
+// ===== 選択肢レンダリング =====
+function renderOpts(containerId, items, isCheckbox) {
+  const el = document.getElementById(containerId);
+  const checkIcon = `<svg class="checkmark" viewBox="0 0 11 11" fill="none" stroke="#fff" stroke-width="2"><polyline points="1.5,5.5 4.5,8.5 9.5,2.5"/></svg>`;
+  const radioIcon = `<svg class="checkmark" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="#fff"/></svg>`;
+  el.innerHTML = items.map((text, i) => {
+    const cls = isCheckbox ? 'opt checkbox' : 'opt';
+    const fn  = isCheckbox
+      ? `clickCheck('${containerId}', ${i})`
+      : `clickRadio(${i})`;
+    return `<div class="${cls}" id="opt-${containerId}-${i}" onclick="${fn}">
+      <div class="mark">${isCheckbox ? checkIcon : radioIcon}</div>
+      <div class="opt-text">${text}</div>
+    </div>`;
+  }).join('');
+}
+
+function clickCheck(containerId, i) {
+  const isRef = containerId === 'opts-ref';
+  const options = isRef ? REFERRAL_OPTIONS : MOTIVE_OPTIONS;
+  const sel     = isRef ? selRef : selMot;
+  const btnId   = isRef ? 'btn-q1-next' : 'btn-q2-next';
+
+  const val = options[i];
+  const el  = document.getElementById(`opt-${containerId}-${i}`);
+  if (sel.has(val)) { sel.delete(val); el.classList.remove('sel'); }
+  else              { sel.add(val);    el.classList.add('sel'); }
+  document.getElementById(btnId).disabled = sel.size === 0;
+}
+
+function clickRadio(i) {
+  document.querySelectorAll('#opts-exp .opt').forEach(e => e.classList.remove('sel'));
+  document.getElementById('opt-opts-exp-' + i).classList.add('sel');
+  selExp = EXPERIENCE_OPTIONS[i];
+  document.getElementById('btn-submit').disabled = false;
+}
+
+renderOpts('opts-ref', REFERRAL_OPTIONS, true);
+renderOpts('opts-mot', MOTIVE_OPTIONS,   true);
+renderOpts('opts-exp', EXPERIENCE_OPTIONS, false);
+
+// ===== ナビゲーション =====
+function show(id) {
+  ['v-q1','v-q2','v-q3','v-done'].forEach(v => {
+    document.getElementById(v).classList.toggle('on', v === id);
+  });
+}
+
+function goQ1() { show('v-q1'); }
+function goQ2() { if (selRef.size > 0) show('v-q2'); }
+function goQ3() { if (selMot.size > 0) show('v-q3'); }
+
+// ===== 送信 =====
+function doSubmit() {
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+
+  const params = new URLSearchParams({
+    referral:   Array.from(selRef).join(','),
+    motive:     Array.from(selMot).join(','),
+    experience: selExp
+  });
+
+  const beacon = new Image();
+  beacon.onload  = startRedirect;
+  beacon.onerror = startRedirect;
+  beacon.src = GAS_URL + '?' + params.toString();
+  setTimeout(startRedirect, 3000);
+}
+
+function startRedirect() {
+  show('v-done');
+  let n = 3;
+  const el = document.getElementById('cnt');
+  const t = setInterval(() => {
+    n--;
+    el.textContent = n;
+    if (n <= 0) { clearInterval(t); window.location.href = PPP_URL; }
+  }, 1000);
+}
+</script>
+</body>
+</html>
