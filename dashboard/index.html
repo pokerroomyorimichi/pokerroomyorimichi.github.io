@@ -122,6 +122,7 @@ body{font-family:-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);co
   <div class="tab on" data-tab="summary"    onclick="switchTab('summary')">📊 サマリー</div>
   <div class="tab"    data-tab="yesterday"  onclick="switchTab('yesterday')">📋 前日レポート</div>
   <div class="tab"    data-tab="sales"      onclick="switchTab('sales')">📈 売上分析</div>
+  <div class="tab"    data-tab="breakdown"  onclick="switchTab('breakdown')">🧮 内訳分析</div>
   <div class="tab"    data-tab="history"    onclick="switchTab('history')">📅 推移</div>
   <div class="tab"    data-tab="customers"  onclick="switchTab('customers')">👥 来客分析</div>
   <div class="tab"    data-tab="staff"      onclick="switchTab('staff')">👤 スタッフ</div>
@@ -133,6 +134,11 @@ body{font-family:-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);co
   <div id="summary-body">
     <div class="loading"><div class="spinner"></div>データを読み込んでいます...</div>
   </div>
+</div>
+
+<!-- ========== BREAKDOWN ========== -->
+<div class="pane content" id="pane-breakdown">
+  <div id="breakdown-body"><div class="loading"><div class="spinner"></div>データを読み込んでいます...</div></div>
 </div>
 
 <!-- ========== YESTERDAY ========== -->
@@ -223,6 +229,7 @@ function switchTab(tab) {
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
   document.getElementById('pane-' + tab).classList.add('on');
   if (tab === 'sales'      && !salesMonthly)        loadSales();
+  if (tab === 'breakdown' && !window._bdLoaded)    loadBreakdown();
   if (tab === 'yesterday' && !window._ydLoaded)    loadYesterday();
   if (tab === 'history'   && !window._histLoaded)  loadHistory();
   if (tab === 'customers' && !window._custLoaded)  loadCustomers();
@@ -543,6 +550,163 @@ function renderHistory(res) {
       { label: '新規',     data: data.map(r => r.newC),   backgroundColor: COLOR.redA,  borderColor: COLOR.red,  borderWidth: 1.5, stack: 's' },
     ]
   }, { scales: { y: { stacked: true, ticks: { callback: v => v + '人' } } } });
+}
+
+// ===== BREAKDOWN =====
+const CAT = {
+  game:  { label:'ゲーム系',  color:'#E63B10', items:['入場料','体験会','チップ(リング)','トーナメント'] },
+  drink: { label:'飲食系',   color:'#3b82f6', items:['単品AL','単品NA','FREE-AL','FREE-NA','ボトル','スタッフドリンク','フード'] },
+  other: { label:'その他',   color:'#f59e0b', items:['その他','販売'] },
+  rake:  { label:'収益調整', color:'#22c55e', items:['レーキ','コミッション','PD収支'] },
+};
+
+async function loadBreakdown(months) {
+  window._bdLoaded = true;
+  months = months || 6;
+  document.getElementById('breakdown-body').innerHTML = '<div class="loading"><div class="spinner"></div>内訳データを読み込んでいます...</div>';
+  try {
+    const res = await api('breakdown', { period: 'monthly', months });
+    if (!res.ok) { document.getElementById('breakdown-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ ${res.error}</div>`; return; }
+    renderBreakdown(res, months);
+  } catch(e) { document.getElementById('breakdown-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ ${e.message}</div>`; }
+}
+
+function renderBreakdown(res, months) {
+  const data = res.data || [];
+  const tot  = res.totals || {};
+  const totalSales = tot.total || 1;
+
+  const pct = v => totalSales > 0 ? (v / totalSales * 100).toFixed(1) + '%' : '-';
+
+  // 構成比カード
+  const catCards = Object.entries(CAT).map(([key, cat]) => {
+    const v = tot[key] || 0;
+    const r = totalSales > 0 ? Math.round(v / totalSales * 100) : 0;
+    return `<div class="card">
+      <div class="card-title" style="display:flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${cat.color}"></span>
+        ${cat.label}
+      </div>
+      <div class="kpi-val">${yen(v)}</div>
+      <div style="margin-top:8px">
+        <div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:${r}%;background:${cat.color}"></div></div>
+        <div class="kpi-bar-label"><span>${cat.items.join('・')}</span><span>${r}%</span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 詳細項目テーブル（月次）
+  const detailKeys = [
+    ['nyujo','入場料'],['taiken','体験会'],['chip','チップ(リング)'],['toname','トーナメント'],
+    ['tanpin_al','単品AL'],['tanpin_na','単品NA'],['free_al','FREE-AL'],['free_na','FREE-NA'],
+    ['bottle','ボトル'],['staff_dr','スタッフドリンク'],['food','フード'],
+    ['other','その他'],['sale','販売'],
+    ['rake','レーキ'],['commission','コミッション'],['pd','PD収支']
+  ];
+  const detailRows = detailKeys.map(([k, lbl]) => {
+    const catKey = ['nyujo','taiken','chip','toname'].includes(k) ? 'game'
+      : ['tanpin_al','tanpin_na','free_al','free_na','bottle','staff_dr','food'].includes(k) ? 'drink'
+      : ['other','sale'].includes(k) ? 'other' : 'rake';
+    const catColor = CAT[catKey].color;
+    const monthCells = data.map(m => {
+      const v = m[k] || 0;
+      return `<td style="text-align:right;padding:6px 8px">${v > 0 ? yen(v) : '<span style="color:var(--sub2)">-</span>'}</td>`;
+    }).join('');
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};margin-right:6px"></span>
+        ${lbl}
+      </td>
+      ${monthCells}
+    </tr>`;
+  }).join('');
+
+  const monthHeaders = data.map(m => `<th style="text-align:right;padding:6px 8px;min-width:90px">${m.label}</th>`).join('');
+
+  document.getElementById('breakdown-body').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="sec-label" style="margin:0">売上内訳分析</div>
+      <div class="filter-bar" style="margin:0">
+        ${[3,6,12].map(m => `<button class="filter-btn ${m===months?'on':''}" onclick="loadBreakdown(${m})">${m}ヶ月</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="grid4" style="margin-bottom:20px">${catCards}</div>
+
+    <div class="grid2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title-lg">カテゴリ構成比</div>
+        <div class="chart-wrap"><canvas id="chart-bd-pie"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title-lg">月次カテゴリ推移（積み上げ）</div>
+        <div class="chart-wrap"><canvas id="chart-bd-stack"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title-lg">ゲーム系 詳細推移</div>
+      <div class="chart-wrap"><canvas id="chart-bd-game"></canvas></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title-lg">飲食系 詳細推移</div>
+      <div class="chart-wrap"><canvas id="chart-bd-drink"></canvas></div>
+    </div>
+
+    <div class="card" style="overflow-x:auto">
+      <div class="card-title-lg">月別・項目別 詳細一覧</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+        <thead><tr style="color:var(--sub);border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px;min-width:120px">項目</th>
+          ${monthHeaders}
+        </tr></thead>
+        <tbody>${detailRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  const lbls = data.map(d => d.label);
+  const catKeys = ['game','drink','other','rake'];
+
+  // 構成比ドーナツ
+  mkChart('chart-bd-pie', 'doughnut', {
+    labels: Object.values(CAT).map(c => c.label),
+    datasets: [{ data: catKeys.map(k => tot[k]||0), backgroundColor: Object.values(CAT).map(c => c.color), borderWidth: 0, hoverOffset: 6 }]
+  }, { plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } } } });
+
+  // 積み上げ棒グラフ
+  mkChart('chart-bd-stack', 'bar', {
+    labels: lbls,
+    datasets: catKeys.map(k => ({
+      label: CAT[k].label,
+      data:  data.map(d => d[k]||0),
+      backgroundColor: CAT[k].color + '99',
+      borderColor:     CAT[k].color,
+      borderWidth: 1.5,
+      stack: 's'
+    }))
+  }, { scales: { y: { stacked: true, ticks: { callback: v => '¥' + (v/10000).toFixed(0) + '万' } } } });
+
+  // ゲーム系詳細
+  const gameItems = [['chip','チップ(リング)',COLOR.red],['toname','トーナメント','#ff5733'],['nyujo','入場料','#fb923c'],['taiken','体験会','#fbbf24']];
+  mkChart('chart-bd-game', 'bar', {
+    labels: lbls,
+    datasets: gameItems.map(([k,lbl,col]) => ({
+      label: lbl, data: data.map(d => d[k]||0),
+      backgroundColor: col + '99', borderColor: col, borderWidth: 1.5, stack: 's'
+    }))
+  }, { scales: { y: { stacked: true, ticks: { callback: v => '¥' + (v/10000).toFixed(0) + '万' } } } });
+
+  // 飲食系詳細
+  const drinkItems = [['bottle','ボトル','#3b82f6'],['tanpin_al','単品AL','#60a5fa'],['free_al','FREE-AL','#93c5fd'],['food','フード','#22c55e'],['tanpin_na','単品NA','#86efac'],['free_na','FREE-NA','#bbf7d0'],['staff_dr','スタッフドリンク','#94a3b8']];
+  mkChart('chart-bd-drink', 'bar', {
+    labels: lbls,
+    datasets: drinkItems.map(([k,lbl,col]) => ({
+      label: lbl, data: data.map(d => d[k]||0),
+      backgroundColor: col + '99', borderColor: col, borderWidth: 1.5, stack: 's'
+    }))
+  }, { scales: { y: { stacked: true, ticks: { callback: v => '¥' + (v/10000).toFixed(0) + '万' } } } });
 }
 
 // ===== YESTERDAY =====
