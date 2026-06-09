@@ -121,6 +121,7 @@ body{font-family:-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);co
 <nav class="tabs">
   <div class="tab on" data-tab="summary"    onclick="switchTab('summary')">📊 サマリー</div>
   <div class="tab"    data-tab="sales"      onclick="switchTab('sales')">📈 売上分析</div>
+  <div class="tab"    data-tab="history"    onclick="switchTab('history')">📅 推移</div>
   <div class="tab"    data-tab="prediction" onclick="switchTab('prediction')">🤖 AI予測</div>
 </nav>
 
@@ -134,6 +135,13 @@ body{font-family:-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);co
 <!-- ========== SALES ========== -->
 <div class="pane content" id="pane-sales">
   <div id="sales-body">
+    <div class="loading"><div class="spinner"></div>データを読み込んでいます...</div>
+  </div>
+</div>
+
+<!-- ========== HISTORY ========== -->
+<div class="pane content" id="pane-history">
+  <div id="history-body">
     <div class="loading"><div class="spinner"></div>データを読み込んでいます...</div>
   </div>
 </div>
@@ -196,8 +204,9 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
   document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
   document.getElementById('pane-' + tab).classList.add('on');
-  if (tab === 'sales'      && !salesMonthly)  loadSales();
-  if (tab === 'prediction' && !window._predLoaded) loadPrediction();
+  if (tab === 'sales'      && !salesMonthly)        loadSales();
+  if (tab === 'history'    && !window._histLoaded)  loadHistory();
+  if (tab === 'prediction' && !window._predLoaded)  loadPrediction();
 }
 
 // ===== FORMAT =====
@@ -402,6 +411,117 @@ function renderMonthlyTable() {
         <tbody style="line-height:2">${rows}</tbody>
       </table>
     </div>`;
+}
+
+// ===== HISTORY =====
+async function loadHistory() {
+  window._histLoaded = true;
+  document.getElementById('history-body').innerHTML = '<div class="loading"><div class="spinner"></div>全期間データを読み込んでいます...</div>';
+  try {
+    const res = await api('history');
+    if (!res.ok) { document.getElementById('history-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ エラー: ${res.error}</div>`; return; }
+    renderHistory(res);
+  } catch (err) {
+    document.getElementById('history-body').innerHTML = `<div style="color:var(--red2);padding:40px;font-size:13px">⚠ 読み込みエラー: ${err.message}</div>`;
+  }
+}
+
+function renderHistory(res) {
+  const data = res.data || [];
+  const s    = res.summary || {};
+
+  const bepMonthsPct = s.totalMonths ? Math.round(s.bepMonths / s.totalMonths * 100) : 0;
+
+  const tableRows = data.map((r, i) => {
+    const prev = i > 0 ? data[i-1] : null;
+    const growthHtml = r.growthRate != null
+      ? `<span style="color:${r.growthRate >= 0 ? COLOR.green : COLOR.red2}">${r.growthRate >= 0 ? '▲' : '▼'}${Math.abs(r.growthRate)}%</span>`
+      : '-';
+    const rateBc = r.rate == null ? '' : r.rate >= 100 ? 'badge-green' : r.rate >= 80 ? 'badge-amber' : 'badge-red';
+    const bepBc  = r.bepRate >= 100 ? 'badge-green' : 'badge-amber';
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 6px;font-weight:600">${r.label}</td>
+      <td style="text-align:right;padding:8px 6px">${yen(r.sales)}</td>
+      <td style="text-align:center;padding:8px 6px">${r.rate != null ? `<span class="badge ${rateBc}">${r.rate}%</span>` : '-'}</td>
+      <td style="text-align:right;padding:8px 6px">${num(r.customers)}人</td>
+      <td style="text-align:right;padding:8px 6px">${yen(r.unitPrice)}</td>
+      <td style="text-align:center;padding:8px 6px"><span class="badge ${bepBc}">${r.bepRate}%</span></td>
+      <td style="text-align:center;padding:8px 6px">${growthHtml}</td>
+    </tr>`;
+  }).reverse().join('');
+
+  document.getElementById('history-body').innerHTML = `
+    <div class="sec-label">オープン以来の全記録 — 2025/08〜現在（${s.totalMonths}ヶ月）</div>
+
+    <div class="grid4" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-title">累計売上</div>
+        <div class="kpi-val">${yen(s.cumSales)}</div>
+        <div class="kpi-sub"><span style="color:var(--sub)">${s.totalMonths}ヶ月合計</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">累計来客数</div>
+        <div class="kpi-val">${num(s.cumCustomers)}人</div>
+        <div class="kpi-sub"><span style="color:var(--sub)">月平均 ${num(s.avgCust)}人</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">月平均売上</div>
+        <div class="kpi-val">${yen(s.avgSales)}</div>
+        <div class="kpi-sub"><span style="color:var(--sub)">最高: ${s.bestMonth} ${yen(s.bestSales)}</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">BEP達成月</div>
+        <div class="kpi-val">${s.bepMonths}<span style="font-size:16px;font-weight:400"> / ${s.totalMonths}ヶ月</span></div>
+        <div class="kpi-sub"><span style="color:${bepMonthsPct >= 50 ? COLOR.green : COLOR.amber}">${bepMonthsPct}%の月で達成</span></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title-lg">月次売上推移</div>
+        <div class="chart-wrap lg"><canvas id="chart-hist-sales"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title-lg">月次来客数推移</div>
+        <div class="chart-wrap lg"><canvas id="chart-hist-cust"></canvas></div>
+      </div>
+    </div>
+
+    <div class="gap"></div>
+    <div class="card" style="overflow-x:auto">
+      <div class="card-title-lg">月別実績詳細</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px">
+        <thead><tr style="color:var(--sub);border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:8px 6px">月</th>
+          <th style="text-align:right;padding:8px 6px">売上</th>
+          <th style="text-align:center;padding:8px 6px">目標比</th>
+          <th style="text-align:right;padding:8px 6px">来客数</th>
+          <th style="text-align:right;padding:8px 6px">客単価</th>
+          <th style="text-align:center;padding:8px 6px">BEP比</th>
+          <th style="text-align:center;padding:8px 6px">前月比</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  const lbls = data.map(r => r.label);
+  mkChart('chart-hist-sales', 'bar', {
+    labels: lbls,
+    datasets: [
+      { label: '売上',  data: data.map(r => r.sales),  backgroundColor: COLOR.redA, borderColor: COLOR.red, borderWidth: 2 },
+      { label: '目標',  data: data.map(r => r.target), type: 'line', borderColor: COLOR.amber, borderDash: [4,3], borderWidth: 1.5, backgroundColor: 'transparent', pointRadius: 0 },
+      { label: 'BEP',   data: data.map(() => 1771671),  type: 'line', borderColor: COLOR.sub,   borderDash: [2,4], borderWidth: 1,   backgroundColor: 'transparent', pointRadius: 0 },
+    ]
+  }, { scales: { y: { ticks: { callback: v => '¥' + (v/10000).toFixed(0) + '万' } } } });
+
+  mkChart('chart-hist-cust', 'bar', {
+    labels: lbls,
+    datasets: [
+      { label: 'リピート', data: data.map(r => r.repeat), backgroundColor: COLOR.blueA, borderColor: COLOR.blue, borderWidth: 1.5, stack: 's' },
+      { label: '新規',     data: data.map(r => r.newC),   backgroundColor: COLOR.redA,  borderColor: COLOR.red,  borderWidth: 1.5, stack: 's' },
+    ]
+  }, { scales: { y: { stacked: true, ticks: { callback: v => v + '人' } } } });
 }
 
 // ===== AI PREDICTION =====
