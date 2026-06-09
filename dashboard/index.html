@@ -232,7 +232,7 @@ function renderSummary(d) {
     <div class="sec-label">今月のKPI — ${d.month}</div>
     <div class="grid4">
       ${kpiCard('今月売上', yen(s.actual), badge(s.rate),
-        s.target ? `目標 ${yen(s.target)}`,
+        s.target ? `目標 ${yen(s.target)}` : '',
         s.rate, barColor(s.rate))}
       ${kpiCard('来客数', num(c.total) + '人', badge(c.rate),
         c.target ? `目標 ${num(c.target)}人` : '目標未設定',
