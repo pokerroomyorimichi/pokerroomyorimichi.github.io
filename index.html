@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YORIMICHI スタッフページ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: #3E3A39;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ヘッダー */
+    .header {
+      width: 100%;
+      background: #3E3A39;
+      padding: 32px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header img {
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .header-sub {
+      color: #EFEFEF;
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      opacity: 0.7;
+    }
+
+    /* メインコンテンツ */
+    .main {
+      width: 100%;
+      max-width: 480px;
+      padding: 8px 20px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* セクションタイトル */
+    .section-label {
+      color: #EFEFEF;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      opacity: 0.5;
+      padding: 8px 0 4px;
+    }
+
+    /* アプリカード */
+    .app-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      cursor: pointer;
+    }
+
+    .app-card:active {
+      transform: scale(0.97);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.14);
+    }
+
+    .app-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .icon-timeclock { background: #E63B10; }
+    .icon-expense   { background: #3E3A39; }
+
+    .app-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .app-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #3E3A39;
+      margin-bottom: 3px;
+    }
+
+    .app-desc {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    .app-arrow {
+      color: #ccc;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    /* 未デプロイバッジ */
+    .badge-soon {
+      display: inline-block;
+      background: #EFEFEF;
+      color: #aaa;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* お知らせ */
+    .notice-card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+
+    .notice-title {
+      color: #EFEFEF;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .notice-item {
+      display: flex;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .notice-item:last-child { border-bottom: none; }
+
+    .notice-date {
+      color: #E63B10;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+      padding-top: 1px;
+    }
+
+    .notice-text {
+      color: #EFEFEF;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.85;
+    }
+
+    /* フッター */
+    .footer {
+      color: rgba(255,255,255,0.2);
+      font-size: 11px;
+      padding: 0 20px 32px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img src="logo_white.png" alt="YORIMICHI">
+    <span class="header-sub">STAFF PORTAL</span>
+  </div>
+
+  <div class="main">
+
+    <div class="section-label">APPS</div>
+
+    <!-- タイムカード -->
+    <a class="app-card" href="TIMECLOCK_URL_PLACEHOLDER" id="timeclock-link">
+      <div class="app-icon icon-timeclock">🕐</div>
+      <div class="app-info">
+        <div class="app-name">タイムカード</div>
+        <div class="app-desc">出勤・退勤の打刻</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+
+    <!-- 経費申請 -->
+    <a class="app-card" href="EXPENSE_URL_PLACEHOLDER" id="expense-link">
+      <div class="app-icon icon-expense">💳</div>
+      <div class="app-info">
+        <div class="app-name">経費申請</div>
+        <div class="app-desc">買い出し・立替の申請</div>
+        <span class="badge-soon" id="expense-badge">準備中</span>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+
+    <div class="section-label" style="margin-top:8px;">お知らせ</div>
+
+    <div class="notice-card" id="notice-area">
+      <div class="notice-title">📢 スタッフへのお知らせ</div>
+      <div class="notice-item">
+        <span class="notice-date">06/10</span>
+        <span class="notice-text">スタッフポータルを開設しました</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">POKER ROOM YORIMICHI — Staff Only</div>
+
+  <script>
+    // URLが設定されていない場合の処理
+    const timeclockUrl = 'TIMECLOCK_URL_PLACEHOLDER';
+    const expenseUrl   = 'EXPENSE_URL_PLACEHOLDER';
+
+    if (timeclockUrl === 'TIMECLOCK_URL_PLACEHOLDER') {
+      document.getElementById('timeclock-link').removeAttribute('href');
+      document.getElementById('timeclock-link').style.opacity = '0.5';
+      const b = document.createElement('span');
+      b.className = 'badge-soon';
+      b.textContent = '準備中';
+      document.getElementById('timeclock-link').querySelector('.app-info').appendChild(b);
+    }
+
+    if (expenseUrl === 'EXPENSE_URL_PLACEHOLDER') {
+      document.getElementById('expense-link').removeAttribute('href');
+      document.getElementById('expense-link').style.opacity = '0.5';
+    }
+  </script>
+
+</body>
+</html>
