@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>YORIMICHI シフト提出</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#3E3A39;--card:#2d2926;--card2:#231f1d;
+  --red:#E63B10;--red-d:#c42e08;
+  --text:#EFEFEF;--sub:#a09a97;
+  --blue:#5b9bd5;--sun:#e06666;
+  --border:rgba(239,239,239,0.12);
+  --r:12px;--shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Noto Sans JP',sans-serif}
+body{display:flex;justify-content:center;padding:24px 16px 60px}
+.wrap{width:100%;max-width:440px}
+
+.logo{text-align:center;margin-bottom:22px}
+.logo-title{font-size:26px;font-weight:700;letter-spacing:5px}
+.logo-title span{color:var(--red)}
+.logo-sub{font-size:11px;color:var(--sub);letter-spacing:3px;margin-top:6px}
+
+.card{background:var(--card);border-radius:var(--r);padding:22px;box-shadow:var(--shadow)}
+.h-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.h-note{font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:16px}
+.warn{background:rgba(230,59,16,.12);border:1px solid var(--red);color:#ffb59e;
+  font-size:12px;font-weight:600;border-radius:8px;padding:9px 12px;margin-bottom:14px;line-height:1.5}
+
+label.fl{display:block;font-size:12px;color:var(--sub);font-weight:600;margin-bottom:6px}
+select,input[type=text],input[type=time],textarea{
+  width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:9px;
+  color:var(--text);font-size:15px;font-family:inherit;padding:12px 13px;
+}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
+
+.pin-row{display:flex;gap:8px;justify-content:center;margin:14px 0}
+.pd{width:14px;height:14px;border-radius:50%;border:2px solid var(--sub);transition:all .15s}
+.pd.on{background:var(--red);border-color:var(--red)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:6px}
+.key{background:var(--card2);border:1.5px solid var(--border);border-radius:10px;
+  padding:15px 0;font-size:20px;font-weight:600;text-align:center;cursor:pointer;user-select:none}
+.key:active{background:rgba(230,59,16,.12)}
+
+.btn{width:100%;padding:15px;border-radius:10px;border:none;font-size:15px;font-weight:700;
+  cursor:pointer;font-family:inherit;letter-spacing:.5px;margin-top:16px;transition:all .2s}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-d)}
+.btn-red:active{transform:scale(.98)}
+.btn-red:disabled{background:#4a2e28;color:#666;cursor:not-allowed;transform:none}
+.btn-back{background:transparent;border:1.5px solid var(--border);color:var(--sub);margin-top:9px}
+
+.err{color:#ff9b82;font-size:12.5px;font-weight:600;margin-top:10px;min-height:16px;text-align:center}
+
+.contract{background:var(--card2);border-radius:9px;padding:11px 13px;margin-bottom:14px;font-size:12px;color:var(--sub);line-height:1.7}
+.contract b{color:var(--text)}
+
+.quick{display:flex;gap:8px;margin-bottom:12px}
+.quick button{flex:1;background:var(--card2);border:1.5px solid var(--border);color:var(--sub);
+  border-radius:8px;padding:9px 0;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.quick button:active{background:rgba(230,59,16,.1)}
+
+.day{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.day .dt{width:58px;flex-shrink:0;font-size:13px;font-weight:600}
+.day .dt small{color:var(--sub);font-weight:400}
+.day .dt.sat{color:var(--blue)}
+.day .dt.sun{color:var(--sun)}
+.tg{display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0}
+.tg button{background:transparent;border:none;color:var(--sub);font-family:inherit;
+  font-size:12px;font-weight:600;padding:8px 10px;cursor:pointer}
+.tg button.on-work{background:var(--red);color:#fff}
+.tg button.on-off{background:#555;color:#fff}
+.times{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+.times input{padding:7px 6px;font-size:13px;text-align:center}
+.times.hide{visibility:hidden}
+.times span{color:var(--sub);font-size:12px}
+
+.done{text-align:center;padding:14px 0}
+.done .ic{font-size:46px;margin-bottom:12px}
+.done .t{font-size:19px;font-weight:700;margin-bottom:10px}
+.done .b{font-size:14px;color:var(--sub);line-height:1.7}
+.loading{text-align:center;color:var(--sub);font-size:13px;padding:30px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="logo">
+    <div class="logo-title">YORI<span>M</span>ICHI</div>
+    <div class="logo-sub">SHIFT · シフト希望提出</div>
+  </div>
+
+  <!-- ログイン -->
+  <div class="card view" id="v-login">
+    <div class="h-title">ログイン</div>
+    <div class="h-note">お名前を選び、打刻と同じPINを入力してください。</div>
+    <label class="fl">お名前</label>
+    <select id="staff"><option value="">読み込み中...</option></select>
+    <div class="pin-row" id="pindots"></div>
+    <div class="keys" id="keys"></div>
+    <button class="btn btn-red" id="btn-login" onclick="doLogin()">ログイン</button>
+    <div class="err" id="login-err"></div>
+  </div>
+
+  <!-- 提出フォーム -->
+  <div class="card view" id="v-form" style="display:none">
+    <div class="h-title" id="form-title">シフト希望</div>
+    <div class="h-note" id="form-sub"></div>
+    <div class="warn" id="deadline-warn" style="display:none"></div>
+    <div class="contract" id="contract" style="display:none"></div>
+    <div class="quick">
+      <button onclick="setAll('出勤可')">全て出勤可</button>
+      <button onclick="setAll('休み希望')">全て休み希望</button>
+    </div>
+    <div id="grid"><div class="loading">読み込み中...</div></div>
+    <label class="fl" style="margin-top:16px">コメント（任意）</label>
+    <textarea id="comment" rows="2" placeholder="連絡事項があれば"></textarea>
+    <button class="btn btn-red" id="btn-submit" onclick="doSubmit()">この内容で提出する</button>
+    <button class="btn btn-back" onclick="logout()">← ログアウト</button>
+    <div class="err" id="form-err"></div>
+  </div>
+
+  <!-- 完了 -->
+  <div class="card view" id="v-done" style="display:none">
+    <div class="done">
+      <div class="ic">✅</div>
+      <div class="t">提出しました！</div>
+      <div class="b" id="done-body"></div>
+      <button class="btn btn-back" onclick="location.reload()">閉じる</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== GAS Web App URL（打刻本体と同じプロジェクト。API窓口のみ利用） =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyc7h40Wabi8jpbAvH2yWjtYrO6ewH42Ui1aaxzkyNAvKE-bfTE5RObqwVaVH8kLFkx/exec';
+const WEEK = ['日','月','火','水','木','金','土'];
+const SESSION_KEY = 'ymShiftSession';
+
+let session = null;        // {staff, exp, token, storeName}
+let target = null;         // {year, month, days, deadlineStr, isLate}
+let days = [];             // [{d, wd, avail, start, end}]
+let pin = '';
+
+// ---------- API ----------
+async function apiGet(params){
+  const url = GAS_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(body){
+  // Content-Type未指定(text/plain)で単純リクエスト化＝CORSプリフライト回避
+  const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify(body) });
+  return res.json();
+}
+
+// ---------- 画面切替 ----------
+function show(id){
+  ['v-login','v-form','v-done'].forEach(v=>{
+    document.getElementById(v).style.display = (v===id)?'block':'none';
+  });
+}
+
+// ---------- 起動 ----------
+window.onload = () => {
+  buildKeys(); buildDots();
+  loadStaff();
+  const saved = localStorage.getItem(SESSION_KEY);
+  if (saved){
+    try{
+      const s = JSON.parse(saved);
+      if (s && s.exp && Date.now() < s.exp){ session = s; openForm(); return; }
+    }catch(_){}
+    localStorage.removeItem(SESSION_KEY);
+  }
+  show('v-login');
+};
+
+// ---------- ログイン ----------
+function loadStaff(){
+  apiGet({api:'stafflist'}).then(r=>{
+    const sel = document.getElementById('staff');
+    if(!r.ok){ sel.innerHTML='<option value="">取得に失敗しました</option>'; return; }
+    sel.innerHTML = '<option value="">選択してください</option>' +
+      r.staff.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+  }).catch(()=>{ document.getElementById('staff').innerHTML='<option value="">通信エラー</option>'; });
+}
+function buildDots(){
+  document.getElementById('pindots').innerHTML =
+    [0,1,2,3].map(i=>`<div class="pd" id="pd${i}"></div>`).join('');
+}
+function buildKeys(){
+  const keys = ['1','2','3','4','5','6','7','8','9','←','0','OK'];
+  document.getElementById('keys').innerHTML = keys.map(k=>{
+    const fn = k==='←' ? 'pinDel()' : k==='OK' ? 'doLogin()' : `pinKey('${k}')`;
+    return `<div class="key" onclick="${fn}">${k}</div>`;
+  }).join('');
+}
+function pinKey(k){ if(pin.length<8){ pin+=k; drawDots(); } }
+function pinDel(){ pin=pin.slice(0,-1); drawDots(); }
+function drawDots(){ for(let i=0;i<4;i++){ const el=document.getElementById('pd'+i); if(el) el.classList.toggle('on', i<pin.length); } }
+
+function doLogin(){
+  const staff = document.getElementById('staff').value;
+  const err = document.getElementById('login-err');
+  err.textContent='';
+  if(!staff){ err.textContent='お名前を選択してください'; return; }
+  if(!pin){ err.textContent='PINを入力してください'; return; }
+  const btn = document.getElementById('btn-login');
+  btn.disabled=true; btn.textContent='確認中...';
+  apiPost({api:'login', staff, pin}).then(r=>{
+    btn.disabled=false; btn.textContent='ログイン';
+    if(!r.ok){ err.textContent=r.error||'ログインに失敗しました'; pin=''; drawDots(); return; }
+    session = { staff:r.staff, exp:r.exp, token:r.token, storeName:r.storeName };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    pin=''; drawDots();
+    openForm();
+  }).catch(()=>{ btn.disabled=false; btn.textContent='ログイン'; err.textContent='通信エラーが発生しました'; });
+}
+function logout(){ localStorage.removeItem(SESSION_KEY); session=null; location.reload(); }
+
+// ---------- 対象月（翌月）＆締切（当月15日） ----------
+function computeTarget(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth(); // m:0-11
+  const ty = m===11 ? y+1 : y;
+  const tm = m===11 ? 1 : m+2;                       // 翌月(1-12)
+  const numDays = new Date(ty, tm, 0).getDate();
+  return {
+    year:ty, month:tm, days:numDays,
+    deadlineStr:`${y}/${String(m+1).padStart(2,'0')}/15`,
+    isLate: now.getDate() > 15
+  };
+}
+
+// ---------- フォーム ----------
+function openForm(){
+  show('v-form');
+  target = computeTarget();
+  document.getElementById('form-title').textContent = `${target.year}年${target.month}月分 シフト希望`;
+  document.getElementById('form-sub').textContent = `${session.staff} さん／提出締切 ${target.deadlineStr}`;
+  const warn = document.getElementById('deadline-warn');
+  if(target.isLate){
+    warn.style.display='block';
+    warn.textContent='⚠️ 提出締切（毎月15日）を過ぎています。提出は可能ですが、確定に間に合わない場合があります。お早めにお願いします。';
+  }
+  // 初期化: 全日「休み希望」
+  days = [];
+  for(let d=1; d<=target.days; d++){
+    const wd = new Date(target.year, target.month-1, d).getDay();
+    days.push({ d, wd, avail:'休み希望', start:'17:00', end:'23:00' });
+  }
+  // 既提出＋契約条件のプリフィル
+  apiGet({api:'shiftmonth', staff:session.staff, exp:session.exp, token:session.token,
+          year:target.year, month:target.month}).then(r=>{
+    if(r.ok){
+      if(r.contract) showContract(r.contract);
+      (r.requests||[]).forEach(req=>{
+        const dd = parseInt(String(req.date).split('/')[2]);
+        const row = days.find(x=>x.d===dd);
+        if(row){ row.avail=req.avail||'休み希望'; if(req.start)row.start=req.start; if(req.end)row.end=req.end; }
+      });
+    } else if (r.error && /セッション|期限|認証/.test(r.error)) {
+      logout(); return;
+    }
+    renderGrid();
+  }).catch(()=>renderGrid());
+}
+
+function showContract(c){
+  const el = document.getElementById('contract');
+  const parts = [];
+  if(c.time)    parts.push(`出勤可能時間: <b>${c.time}</b>`);
+  if(c.days)    parts.push(`可能曜日: <b>${c.days}</b>`);
+  if(c.perWeek) parts.push(`週出勤: <b>${c.perWeek}</b>`);
+  if(c.note)    parts.push(c.note);
+  if(parts.length){ el.style.display='block'; el.innerHTML='📋 契約条件<br>'+parts.join('　/　'); }
+}
+
+function renderGrid(){
+  const g = document.getElementById('grid');
+  g.innerHTML = days.map((x,i)=>{
+    const cls = x.wd===0?'sun':x.wd===6?'sat':'';
+    const work = x.avail==='出勤可';
+    return `<div class="day">
+      <div class="dt ${cls}">${x.d}<small>(${WEEK[x.wd]})</small></div>
+      <div class="tg">
+        <button class="${work?'on-work':''}" onclick="setDay(${i},'出勤可')">出勤可</button>
+        <button class="${!work?'on-off':''}" onclick="setDay(${i},'休み希望')">休み</button>
+      </div>
+      <div class="times ${work?'':'hide'}" id="tm${i}">
+        <input type="time" value="${x.start}" onchange="days[${i}].start=this.value">
+        <span>〜</span>
+        <input type="time" value="${x.end}" onchange="days[${i}].end=this.value">
+      </div>
+    </div>`;
+  }).join('');
+}
+function setDay(i, avail){ days[i].avail=avail; renderGrid(); }
+function setAll(avail){ days.forEach(x=>x.avail=avail); renderGrid(); }
+
+// ---------- 提出 ----------
+function doSubmit(){
+  const err = document.getElementById('form-err'); err.textContent='';
+  // 出勤可なのに時刻が空の日をチェック
+  for(const x of days){
+    if(x.avail==='出勤可' && (!x.start || !x.end)){
+      err.textContent=`${x.d}日: 出勤可の日は開始・終了時刻を入れてください`; return;
+    }
+  }
+  const entries = days.map(x=>({
+    date:`${target.year}/${String(target.month).padStart(2,'0')}/${String(x.d).padStart(2,'0')}`,
+    avail:x.avail, start:x.avail==='出勤可'?x.start:'', end:x.avail==='出勤可'?x.end:''
+  }));
+  const btn = document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='送信中...';
+  apiPost({ api:'shiftsubmit', staff:session.staff, exp:session.exp, token:session.token,
+            year:target.year, month:target.month, entries, comment:document.getElementById('comment').value.trim() })
+  .then(r=>{
+    btn.disabled=false; btn.textContent='この内容で提出する';
+    if(!r.ok){
+      if(r.error && /セッション|期限|認証/.test(r.error)){ logout(); return; }
+      err.textContent=r.error||'提出に失敗しました'; return;
+    }
+    document.getElementById('done-body').innerHTML =
+      `${target.year}年${target.month}月分<br>出勤可 <b>${r.okDays}</b> 日 ／ 休み希望 <b>${r.offDays}</b> 日<br><br>内容はいつでも再提出（上書き）できます。`;
+    show('v-done');
+  }).catch(()=>{ btn.disabled=false; btn.textContent='この内容で提出する'; err.textContent='通信エラーが発生しました'; });
+}
+</script>
+</body>
+</html>
