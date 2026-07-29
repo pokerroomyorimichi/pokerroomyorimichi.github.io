@@ -201,6 +201,56 @@ def ensure_month_blocks(sheets, drive, dry_run=True):
                 last += days  # 次の追記位置を更新（IMPORTRANGEは非同期のため手動加算）
     return logs
 
+# ===== Drive直読み：統合マスタのimportタブを経由せず、店舗の月別ソースを直接連結 =====
+# 統合マスタの IMPORTRANGE は各月ソースの「売上管理!B:AE」/「来客数管理シート!B:AE」を
+# そのままコピーしているだけ。よって同じ範囲をソースから直読みすれば import タブと一致する。
+# これにより統合マスタへの月次追記（方針B）が不要になり、店舗が新月シートを作れば
+# 命名検索で自動的に取り込まれる（真の全自動）。
+SOURCE_KINDS = {
+    'sales':    {'name': '収支記録 {y}年{m}月',        'tab': '売上管理'},
+    'visitors': {'name': '来客数管理シート {y}年{m}月', 'tab': '来客数管理シート'},
+}
+
+def _find_all_month_sources(drive, name_pattern, year):
+    """指定年の各月ソースを命名検索で発見。 {month: (id, name)} を返す。"""
+    found = {}
+    for mo in range(1, 13):
+        name = name_pattern.format(y=year, m=mo)
+        q = (f"name contains '{name}' and "
+             "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false")
+        res = drive.files().list(q=q, fields="files(id,name)", pageSize=10,
+                                 includeItemsFromAllDrives=True, supportsAllDrives=True).execute()
+        files = res.get('files', [])
+        if files:
+            found[mo] = (files[0]['id'], files[0]['name'])
+    return found
+
+def load_rows_from_drive(sheets, drive, kind, year):
+    """kind='sales'|'visitors' の月別ソースを Drive から発見し、B:AE を縦連結。
+    戻り値は import タブと同じ列構造（先頭にダミーヘッダ1行）。"""
+    cfg = SOURCE_KINDS[kind]
+    months = _find_all_month_sources(drive, cfg['name'], year)
+    header = ['日', '曜', '営業']  # rows[1:] でスキップされるダミー
+    out = [header]
+    log = []
+    for mo in sorted(months):
+        sid, sname = months[mo]
+        try:
+            vals = sheets.spreadsheets().values().get(
+                spreadsheetId=sid, range=f"'{cfg['tab']}'!B1:AE45",
+                valueRenderOption='UNFORMATTED_VALUE',
+                dateTimeRenderOption='FORMATTED_STRING').execute().get('values', [])
+        except Exception as e:
+            log.append(f"{kind} {mo}月 読取失敗: {str(e)[:50]}")
+            continue
+        cnt = 0
+        for r in vals:
+            if r and parse_cell_date(r[0]) is not None:  # 日付行のみ（ヘッダ/空行を除外）
+                out.append(r)
+                cnt += 1
+        log.append(f"{kind} {mo}月: {cnt}行 ({sname[:24]})")
+    return out, log
+
 # ===== 生データ取得（Code.gs getDailyRows_ / getCustomerMap_ 相当）=====
 def get_daily_rows(rows, months):
     """収支記録 → 営業日のみ [{date,sales,customers}]（Code.gs getDailyRows_ 相当）"""
@@ -224,6 +274,14 @@ def get_daily_rows(rows, months):
             'customers': parse_num(cell('cust')),
         })
     return out
+
+def apply_visitor_counts(daily, cmap):
+    """来客数を「来客数管理シート」の総客数に統一する。
+    収支記録シートの来客列(col7)は月により未入力(0)のため、専用の来客数シートを正とする。"""
+    for r in daily:
+        c = cmap.get(r['date'])
+        r['customers'] = (c or {}).get('total', 0)
+    return daily
 
 def get_customer_map(rows, months):
     cutoff = sub_months(now_jst().date(), months)
@@ -355,7 +413,8 @@ def compute_sales_daily(daily_all, cmap_all):
     return {'ok': True, 'period': 'daily', 'data': data}
 
 # ===== BREAKDOWN =====
-def compute_breakdown(rows, months):
+def compute_breakdown(rows, months, cmap=None):
+    cmap = cmap or {}
     cutoff = sub_months(now_jst().date(), min(months, 24))
     detail_keys = ['nyujo','taiken','chip','toname','tanpin_al','tanpin_na','free_al','free_na',
                    'bottle','staff_dr','food','sale','commission','pd','cash','card','emoney']
@@ -371,6 +430,8 @@ def compute_breakdown(rows, months):
         row = {'date': fmt_date(d), 'ym': fmt_date(d)[:7]}
         for k,i in COL.items():
             row[k] = parse_num(r[i]) if len(r)>i else 0
+        # 来客数は来客数シートの総客数へ統一（収支記録の来客列は月により未入力のため）
+        row['cust'] = cmap.get(row['date'], {}).get('total', 0)
         for cat,defn in CATEGORIES.items():
             row[cat] = sum(row.get(c,0) for c in defn['cols'])
         parsed.append(row)
@@ -621,8 +682,7 @@ def compute_prediction(daily_all):
 def main():
     sheets, drive = get_service()
 
-    # 方針B：当月・翌月の未反映ブロックを検出し追記（APPEND_MONTHS=1 のときのみ実書込）。
-    # データ生成の前段。失敗してもデータ生成は続行する。
+    # 方針B：当月・翌月の未反映ブロックを検出し統合マスタへ追記（APPEND_MONTHS=1のときのみ実書込）。
     try:
         dry = os.environ.get('APPEND_MONTHS') != '1'
         for line in ensure_month_blocks(sheets, drive, dry_run=dry):
@@ -630,18 +690,21 @@ def main():
     except Exception as e:
         print(f"[ensure_blocks] 例外のためスキップ: {str(e)[:100]}")
 
-    # 収支記録・来客数を1回ずつ全読み
+    # 収支記録・来客数を統合マスタの import タブから読む（IMPORTRANGE で各月ソースを
+    # 縦連結済み・検証済み）。※ソース直読みは検索信頼性/日付再構築の課題があり保留。
     sales_rows = read_values(sheets, MASTER_SS_ID, "'import_収支記録_2026'!A1:AZ400", 'UNFORMATTED_VALUE')
     cust_rows  = read_values(sheets, MASTER_SS_ID, "'import_来客数_2026'!A1:H400", 'UNFORMATTED_VALUE')
 
     daily24 = get_daily_rows(sales_rows, 24)
     cmap24  = get_customer_map(cust_rows, 24)
+    apply_visitor_counts(daily24, cmap24)   # 来客数を来客数シートの総客数へ統一
     daily3  = [r for r in daily24]  # summary は月フィルタするので全期間でも可
     cmap3   = cmap24
     cmap12  = cmap24
     # sales(daily) は GAS getSalesData_(period=daily, months=2) と同じ2ヶ月窓で読む
     daily2  = get_daily_rows(sales_rows, 2)
     cmap2   = get_customer_map(cust_rows, 2)
+    apply_visitor_counts(daily2, cmap2)
 
     out = {
         '_generatedAt': now_jst().strftime('%Y/%m/%d %H:%M'),
@@ -649,10 +712,10 @@ def main():
         'sales_monthly':  compute_sales_monthly(daily24),
         'sales_daily_2':  compute_sales_daily(daily2, cmap2),
         'history':        compute_history(daily24, cmap24),
-        'breakdown_monthly_3':   compute_breakdown(sales_rows, 3),
-        'breakdown_monthly_6':   compute_breakdown(sales_rows, 6),
-        'breakdown_monthly_12':  compute_breakdown(sales_rows, 12),
-        'breakdown_monthly_all': compute_breakdown(sales_rows, 999),
+        'breakdown_monthly_3':   compute_breakdown(sales_rows, 3, cmap24),
+        'breakdown_monthly_6':   compute_breakdown(sales_rows, 6, cmap24),
+        'breakdown_monthly_12':  compute_breakdown(sales_rows, 12, cmap24),
+        'breakdown_monthly_all': compute_breakdown(sales_rows, 999, cmap24),
         'customers':      compute_customers(sheets, cmap12),
         'staff':          compute_staff(sheets),
         'yesterday':      compute_yesterday(daily24, cmap24, sheets),
