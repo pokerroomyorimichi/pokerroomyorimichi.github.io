@@ -9,6 +9,7 @@ YORIMICHI ダッシュボード 静的データ生成エンジン
 """
 import os, json, warnings, re, math, calendar, datetime as dt
 warnings.filterwarnings("ignore")
+from collections import defaultdict
 from zoneinfo import ZoneInfo
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -274,6 +275,61 @@ def get_daily_rows(rows, months):
             'customers': parse_num(cell('cust')),
         })
     return out
+
+# 店舗の月別フォルダ「2026年」ルート（★A：来場記録Master を含む）
+VISIT_ROOT_FOLDER = '1XvZ9qWqGvzDrZhCK22qCRPOR4iohU7UH'
+
+def load_visit_master_cmap(sheets, drive, year):
+    """各月の「★A：来場記録Master」の来場ログを日別カウントし来客数を再構築する。
+    総客数=来場ログ行数（4月で473=473と実証）。店舗の来客数管理シートの《IMPORT》が
+    #REF!で壊れても、生ログから直接集計するので欠損しない。
+    戻り値: ({date:{total,newC,repeat}}, ログ)。"""
+    cmap, log = {}, []
+    try:
+        r = drive.files().list(
+            q=f"'{VISIT_ROOT_FOLDER}' in parents and "
+              "mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields="files(id,name)", pageSize=100,
+            includeItemsFromAllDrives=True, supportsAllDrives=True).execute()
+    except Exception as e:
+        return cmap, [f"ルートフォルダ取得失敗: {str(e)[:50]}"]
+    folders = {f['name']: f['id'] for f in r.get('files', [])}
+    for mo in range(1, 13):
+        fid = folders.get(f"{year}年{mo}月")
+        if not fid:
+            continue
+        try:
+            rr = drive.files().list(
+                q=f"'{fid}' in parents and name contains '来場記録' and trashed=false",
+                fields="files(id,name)",
+                includeItemsFromAllDrives=True, supportsAllDrives=True).execute()
+            files = rr.get('files', [])
+            if not files:
+                continue
+            v = sheets.spreadsheets().values().get(
+                spreadsheetId=files[0]['id'], range="'来場記録master'!A2:E2000",
+                valueRenderOption='FORMATTED_VALUE').execute().get('values', [])
+        except Exception as e:
+            log.append(f"{mo}月 来場記録master読取失敗: {str(e)[:40]}")
+            continue
+        daily = defaultdict(lambda: [0, 0])  # date -> [total, new]
+        for row in v[1:]:  # 先頭ヘッダを除外
+            day = str(row[1]).strip() if len(row) > 1 else ''
+            player = str(row[3]).strip() if len(row) > 3 else ''
+            ku = str(row[4]).strip() if len(row) > 4 else ''
+            if not day.isdigit() or not player:
+                continue
+            date = f"{year}/{mo:02d}/{int(day):02d}"
+            daily[date][0] += 1
+            if ku == '新規':
+                daily[date][1] += 1
+        tot = 0
+        for date, (t, nw) in daily.items():
+            cmap[date] = {'total': t, 'newC': nw, 'repeat': t - nw}
+            tot += t
+        if daily:
+            log.append(f"{mo}月: 総客数{tot} ({len(daily)}営業日)")
+    return cmap, log
 
 def apply_visitor_counts(daily, cmap):
     """来客数を「来客数管理シート」の総客数に統一する。
@@ -583,9 +639,11 @@ def compute_staff(svc):
     return {'ok': True, 'month': ym, 'today': today, 'staffStats': stats}
 
 # ===== CUSTOMERS（アンケート）=====
-def compute_customers(sheets, cmap12):
+def compute_customers(sheets, cmap12, valid_dates=None):
     monthly={}
     for date,c in cmap12.items():
+        if valid_dates is not None and date not in valid_dates:
+            continue  # 収支記録の営業日に限定（履歴タブと総客数を一致させる）
         ym=date[:7]
         m=monthly.setdefault(ym,{'total':0,'newC':0,'repeat':0})
         m['total']+=c.get('total',0); m['newC']+=c.get('newC',0); m['repeat']+=c.get('repeat',0)
@@ -695,28 +753,37 @@ def main():
     sales_rows = read_values(sheets, MASTER_SS_ID, "'import_収支記録_2026'!A1:AZ400", 'UNFORMATTED_VALUE')
     cust_rows  = read_values(sheets, MASTER_SS_ID, "'import_来客数_2026'!A1:H400", 'UNFORMATTED_VALUE')
 
+    year = now_jst().year
+    # 来客数は「来場記録Master」の来場ログから直接集計（総客数=ログ行数）。
+    # 店舗の来客数管理シートの《IMPORT》が#REF!で壊れた月(5・6月)も生ログから復旧できる。
+    # マスタが読めない月は来客数管理シート(import_来客数)へフォールバック。
+    cmap_master, vlog = load_visit_master_cmap(sheets, drive, year)
+    for line in vlog:
+        print(f"[visit_master] {line}")
+    cmap_sheet = get_customer_map(cust_rows, 24)
+    cmap24 = dict(cmap_sheet)
+    cmap24.update(cmap_master)   # 来場記録Master を優先（欠損月を復旧）
+
     daily24 = get_daily_rows(sales_rows, 24)
-    cmap24  = get_customer_map(cust_rows, 24)
-    apply_visitor_counts(daily24, cmap24)   # 来客数を来客数シートの総客数へ統一
+    apply_visitor_counts(daily24, cmap24)
     daily3  = [r for r in daily24]  # summary は月フィルタするので全期間でも可
     cmap3   = cmap24
     cmap12  = cmap24
     # sales(daily) は GAS getSalesData_(period=daily, months=2) と同じ2ヶ月窓で読む
     daily2  = get_daily_rows(sales_rows, 2)
-    cmap2   = get_customer_map(cust_rows, 2)
-    apply_visitor_counts(daily2, cmap2)
+    apply_visitor_counts(daily2, cmap24)
 
     out = {
         '_generatedAt': now_jst().strftime('%Y/%m/%d %H:%M'),
         'summary':        compute_summary(daily3, cmap3),
         'sales_monthly':  compute_sales_monthly(daily24),
-        'sales_daily_2':  compute_sales_daily(daily2, cmap2),
+        'sales_daily_2':  compute_sales_daily(daily2, cmap24),
         'history':        compute_history(daily24, cmap24),
         'breakdown_monthly_3':   compute_breakdown(sales_rows, 3, cmap24),
         'breakdown_monthly_6':   compute_breakdown(sales_rows, 6, cmap24),
         'breakdown_monthly_12':  compute_breakdown(sales_rows, 12, cmap24),
         'breakdown_monthly_all': compute_breakdown(sales_rows, 999, cmap24),
-        'customers':      compute_customers(sheets, cmap12),
+        'customers':      compute_customers(sheets, cmap12, {r['date'] for r in daily24}),
         'staff':          compute_staff(sheets),
         'yesterday':      compute_yesterday(daily24, cmap24, sheets),
         'prediction':     compute_prediction(daily24),
