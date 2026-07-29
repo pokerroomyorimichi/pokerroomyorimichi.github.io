@@ -1,0 +1,57 @@
+name: Build Dashboard Data
+
+# 毎朝 JST 07:00（UTC 22:00）に統合マスタを読み取り、dashboard/data.json を再生成して commit する。
+# 旧 GAS Web App を廃止し、この GitHub Actions がデータ供給を担う（サーバーレス）。
+
+on:
+  schedule:
+    - cron: '0 22 * * *'   # UTC 22:00 = JST 07:00
+  workflow_dispatch:        # 手動実行も可
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dashboard
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install --quiet google-api-python-client google-auth google-auth-oauthlib
+
+      - name: Write Google token
+        run: |
+          printf '%s' "$GOOGLE_TOKEN_JSON" > "$RUNNER_TEMP/token.json"
+        env:
+          GOOGLE_TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+
+      - name: Generate data.json
+        env:
+          TOKEN_JSON_PATH: ${{ runner.temp }}/token.json
+          DATA_JSON_OUT: dashboard/data.json
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          APPEND_MONTHS: '1'   # 方針B：当月/翌月の未反映ブロックを統合マスタへ自動追記
+        run: python .github/scripts/build_dashboard.py
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard/data.json
+          if git diff --staged --quiet; then
+            echo "データ変更なし — commit スキップ"
+          else
+            git commit -m "chore(dashboard): データ自動更新 $(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M JST')"
+            git push
+          fi
