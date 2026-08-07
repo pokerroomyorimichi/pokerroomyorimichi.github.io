@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
+<head><meta name="robots" content="noindex,nofollow">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>YORIMICHI アンケート</title>
@@ -51,6 +51,12 @@ body{display:flex;align-items:center;justify-content:center;padding:24px 16px;mi
 .opt.sel .checkmark{display:block}
 .opt-text{font-size:14px;font-weight:500;line-height:1.4}
 
+.txt{
+  width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;
+  padding:13px 15px;color:var(--text);font-size:14px;font-family:inherit;
+}
+.txt:focus{outline:none;border-color:var(--red)}
+
 .btn{
   width:100%;padding:15px;border-radius:10px;border:none;
   font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;
@@ -64,6 +70,8 @@ body{display:flex;align-items:center;justify-content:center;padding:24px 16px;mi
 
 .view{display:none}
 .view.on{display:block}
+
+.loading{text-align:center;color:var(--sub);font-size:13px;padding:24px 0}
 
 .done-wrap{text-align:center;padding:12px 0}
 .done-icon{margin-bottom:18px}
@@ -83,89 +91,9 @@ body{display:flex;align-items:center;justify-content:center;padding:24px 16px;mi
   </div>
 
   <div class="card">
-
-    <!-- Q1 年代 -->
-    <div class="view on" id="v-age">
-      <div class="progress">
-        <div class="pstep on"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-      </div>
-      <div class="q-step">質問 1 / 5</div>
-      <div class="q-title">年代を教えてください</div>
-      <div class="q-note"> </div>
-      <div class="opts" id="opts-age"></div>
-      <button class="btn btn-red" id="btn-age-next" onclick="goGender()" disabled>次へ</button>
-    </div>
-
-    <!-- Q2 性別 -->
-    <div class="view" id="v-gender">
-      <div class="progress">
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-      </div>
-      <div class="q-step">質問 2 / 5</div>
-      <div class="q-title">性別を教えてください</div>
-      <div class="q-note"> </div>
-      <div class="opts" id="opts-gender"></div>
-      <button class="btn btn-red" id="btn-gender-next" onclick="goQ1()" disabled>次へ</button>
-      <button class="btn btn-back" onclick="goAge()">← 戻る</button>
-    </div>
-
-    <!-- Q3 流入経路 -->
-    <div class="view" id="v-q1">
-      <div class="progress">
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep"></div>
-        <div class="pstep"></div>
-      </div>
-      <div class="q-step">質問 3 / 5</div>
-      <div class="q-title">YORIMICHIをどこでお知りになりましたか？</div>
-      <div class="q-note">複数選択できます</div>
-      <div class="opts" id="opts-ref"></div>
-      <button class="btn btn-red" id="btn-q1-next" onclick="goQ2()" disabled>次へ</button>
-      <button class="btn btn-back" onclick="goGender()">← 戻る</button>
-    </div>
-
-    <!-- Q4 来店の決め手 -->
-    <div class="view" id="v-q2">
-      <div class="progress">
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep"></div>
-      </div>
-      <div class="q-step">質問 4 / 5</div>
-      <div class="q-title">今回ご来店の決め手は何ですか？</div>
-      <div class="q-note">複数選択できます</div>
-      <div class="opts" id="opts-mot"></div>
-      <button class="btn btn-red" id="btn-q2-next" onclick="goQ3()" disabled>次へ</button>
-      <button class="btn btn-back" onclick="goQ1()">← 戻る</button>
-    </div>
-
-    <!-- Q5 ポーカー経験 -->
-    <div class="view" id="v-q3">
-      <div class="progress">
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-        <div class="pstep on"></div>
-      </div>
-      <div class="q-step">質問 5 / 5</div>
-      <div class="q-title">ポーカーのご経験を教えてください</div>
-      <div class="q-note"> </div>
-      <div class="opts" id="opts-exp"></div>
-      <button class="btn btn-red" id="btn-submit" onclick="doSubmit()" disabled>登録へ進む</button>
-      <button class="btn btn-back" onclick="goQ2()">← 戻る</button>
+    <!-- 設問はJSファイルが設問マスタから動的生成する -->
+    <div id="qhost">
+      <div class="loading" id="loading">読み込み中…</div>
     </div>
 
     <!-- 完了 -->
@@ -180,146 +108,159 @@ body{display:flex;align-items:center;justify-content:center;padding:24px 16px;mi
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 <script>
 // ========================================================
-// ★ GAS をデプロイ後、ウェブアプリURLをここに貼り付ける
+// GAS ウェブアプリURL（設定配信＆回答記録）／PPP登録URL … 変更不可
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwwH3q2ynIl_PoHLYGn65rvJQOnGrZFdb2zH-jRry_TWmBW3Ug-UFpFJNwynz-5nrmfIQ/exec';
+const PPP_URL = 'https://ppp.arkadia.bet/login';
 // ========================================================
 
-const AGE_OPTIONS = [
-  '10代',
-  '20代',
-  '30代',
-  '40代',
-  '50代',
-  '60代以上'
+// GAS/設問マスタが読めない時の保険（現行5問と同一）
+const FALLBACK_QUESTIONS = [
+  { id:'age', title:'年代を教えてください', note:'', type:'single',
+    options:['10代','20代','30代','40代','50代','60代以上'] },
+  { id:'gender', title:'性別を教えてください', note:'', type:'single',
+    options:['男性','女性','その他','回答しない'] },
+  { id:'referral', title:'YORIMICHIをどこでお知りになりましたか？', note:'複数選択できます', type:'multi',
+    options:['Instagramの投稿','Instagramの広告','X（Twitter）','友人・知人の紹介','Google検索','Googleマップ・口コミ','看板・チラシ','その他'] },
+  { id:'motive', title:'今回ご来店の決め手は何ですか？', note:'複数選択できます', type:'multi',
+    options:['Instagramの投稿を見て','Instagramの広告を見て','X（旧Twitter）の投稿を見て','友人・知人に紹介されて','Google等で検索して','Googleマップ・口コミを見て','看板・チラシを見て','以前来たことがあって','その他'] },
+  { id:'experience', title:'ポーカーのご経験を教えてください', note:'', type:'single',
+    options:['未経験（初めて）','初心者（数回程度）','経験者（定期的にプレイ）','上級者（競技経験あり）'] }
 ];
 
-const GENDER_OPTIONS = [
-  '男性',
-  '女性',
-  'その他',
-  '回答しない'
-];
+let QS = [];            // 実際に使う設問配列
+let state = [];         // 回答状態（設問ごと）
+let cur = 0;            // 現在の設問index
 
-const REFERRAL_OPTIONS = [
-  'Instagramの投稿',
-  'Instagramの広告',
-  'X（Twitter）',
-  '友人・知人の紹介',
-  'Google検索',
-  'Googleマップ・口コミ',
-  '看板・チラシ',
-  'その他'
-];
+// ===== 設定読込（JSONP） =====
+let cfgDone = false;
+function onConfig(data){
+  if (cfgDone) return; cfgDone = true;
+  const qs = (data && data.ok && data.questions && data.questions.length) ? data.questions : FALLBACK_QUESTIONS;
+  boot(qs);
+}
+function useFallback(){ if (cfgDone) return; cfgDone = true; boot(FALLBACK_QUESTIONS); }
 
-const MOTIVE_OPTIONS = [
-  'Instagramの投稿を見て',
-  'Instagramの広告を見て',
-  'X（旧Twitter）の投稿を見て',
-  '友人・知人に紹介されて',
-  'Google等で検索して',
-  'Googleマップ・口コミを見て',
-  '看板・チラシを見て',
-  '以前来たことがあって',
-  'その他'
-];
+(function loadConfig(){
+  window.onConfig = onConfig;
+  const s = document.createElement('script');
+  s.src = GAS_URL + '?action=config&callback=onConfig&_=' + new Date().getTime();
+  s.onerror = useFallback;
+  document.head.appendChild(s);
+  setTimeout(useFallback, 3500); // 応答が無ければ保険で起動
+})();
 
-const EXPERIENCE_OPTIONS = [
-  '未経験（初めて）',
-  '初心者（数回程度）',
-  '経験者（定期的にプレイ）',
-  '上級者（競技経験あり）'
-];
+// ===== 画面生成 =====
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-const PPP_URL = 'https://ppp.arkadia.bet/login';
+function boot(qs){
+  QS = qs;
+  state = qs.map(q => q.type === 'multi' ? new Set() : '');
+  const host = document.getElementById('qhost');
+  const N = qs.length;
 
-let selAge    = '';
-let selGender = '';
-let selRef    = new Set();
-let selMot    = new Set();
-let selExp    = '';
+  host.innerHTML = qs.map((q, i) => {
+    const steps = Array.from({length:N}, (_,k) => `<div class="pstep${k<=i?' on':''}"></div>`).join('');
+    const last = (i === N - 1);
+    const back = i > 0 ? `<button class="btn btn-back" onclick="go(${i-1})">← 戻る</button>` : '';
+    let body;
+    if (q.type === 'text') {
+      body = `<input class="txt" id="txt-${i}" type="text" placeholder="ご自由にご記入ください"
+                oninput="onText(${i}, this.value)">`;
+    } else {
+      body = `<div class="opts" id="opts-${i}"></div>`;
+    }
+    const btnLabel = last ? '登録へ進む' : '次へ';
+    const disabled = (q.type === 'text') ? '' : 'disabled';
+    return `
+      <div class="view${i===0?' on':''}" id="v-${i}">
+        <div class="progress">${steps}</div>
+        <div class="q-step">質問 ${i+1} / ${N}</div>
+        <div class="q-title">${esc(q.title)}</div>
+        <div class="q-note">${q.note ? esc(q.note) : '&nbsp;'}</div>
+        ${body}
+        <button class="btn btn-red" id="next-${i}" onclick="next(${i})" ${disabled}>${btnLabel}</button>
+        ${back}
+      </div>`;
+  }).join('');
 
-// ===== 選択肢レンダリング =====
-function renderOpts(containerId, items, isCheckbox) {
-  const el = document.getElementById(containerId);
-  const checkIcon = `<svg class="checkmark" viewBox="0 0 11 11" fill="none" stroke="#fff" stroke-width="2"><polyline points="1.5,5.5 4.5,8.5 9.5,2.5"/></svg>`;
-  const radioIcon = `<svg class="checkmark" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="#fff"/></svg>`;
-  el.innerHTML = items.map((text, i) => {
-    const cls = isCheckbox ? 'opt checkbox' : 'opt';
-    const fn  = isCheckbox
-      ? `clickCheck('${containerId}', ${i})`
-      : `clickRadio('${containerId}', ${i})`;
-    return `<div class="${cls}" id="opt-${containerId}-${i}" onclick="${fn}">
-      <div class="mark">${isCheckbox ? checkIcon : radioIcon}</div>
-      <div class="opt-text">${text}</div>
+  qs.forEach((q, i) => { if (q.type !== 'text') renderOpts(i, q); });
+  cur = 0;
+}
+
+const checkIcon = `<svg class="checkmark" viewBox="0 0 11 11" fill="none" stroke="#fff" stroke-width="2"><polyline points="1.5,5.5 4.5,8.5 9.5,2.5"/></svg>`;
+const radioIcon = `<svg class="checkmark" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="#fff"/></svg>`;
+
+function renderOpts(i, q){
+  const isMulti = q.type === 'multi';
+  const el = document.getElementById('opts-' + i);
+  el.innerHTML = q.options.map((text, k) => {
+    const cls = isMulti ? 'opt checkbox' : 'opt';
+    const fn = isMulti ? `clickMulti(${i},${k})` : `clickSingle(${i},${k})`;
+    return `<div class="${cls}" id="opt-${i}-${k}" onclick="${fn}">
+      <div class="mark">${isMulti ? checkIcon : radioIcon}</div>
+      <div class="opt-text">${esc(text)}</div>
     </div>`;
   }).join('');
 }
 
-function clickCheck(containerId, i) {
-  const isRef = containerId === 'opts-ref';
-  const options = isRef ? REFERRAL_OPTIONS : MOTIVE_OPTIONS;
-  const sel     = isRef ? selRef : selMot;
-  const btnId   = isRef ? 'btn-q1-next' : 'btn-q2-next';
-
-  const val = options[i];
-  const el  = document.getElementById(`opt-${containerId}-${i}`);
-  if (sel.has(val)) { sel.delete(val); el.classList.remove('sel'); }
-  else              { sel.add(val);    el.classList.add('sel'); }
-  document.getElementById(btnId).disabled = sel.size === 0;
+function clickSingle(i, k){
+  document.querySelectorAll('#opts-' + i + ' .opt').forEach(e => e.classList.remove('sel'));
+  document.getElementById('opt-' + i + '-' + k).classList.add('sel');
+  state[i] = QS[i].options[k];
+  document.getElementById('next-' + i).disabled = false;
 }
 
-function clickRadio(containerId, i) {
-  document.querySelectorAll('#' + containerId + ' .opt').forEach(e => e.classList.remove('sel'));
-  document.getElementById('opt-' + containerId + '-' + i).classList.add('sel');
-  if (containerId === 'opts-age') {
-    selAge = AGE_OPTIONS[i];
-    document.getElementById('btn-age-next').disabled = false;
-  } else if (containerId === 'opts-gender') {
-    selGender = GENDER_OPTIONS[i];
-    document.getElementById('btn-gender-next').disabled = false;
-  } else if (containerId === 'opts-exp') {
-    selExp = EXPERIENCE_OPTIONS[i];
-    document.getElementById('btn-submit').disabled = false;
-  }
+function clickMulti(i, k){
+  const val = QS[i].options[k];
+  const set = state[i];
+  const el = document.getElementById('opt-' + i + '-' + k);
+  if (set.has(val)) { set.delete(val); el.classList.remove('sel'); }
+  else              { set.add(val);    el.classList.add('sel'); }
+  document.getElementById('next-' + i).disabled = set.size === 0;
 }
 
-renderOpts('opts-age',    AGE_OPTIONS,        false);
-renderOpts('opts-gender', GENDER_OPTIONS,     false);
-renderOpts('opts-ref',    REFERRAL_OPTIONS,   true);
-renderOpts('opts-mot',    MOTIVE_OPTIONS,     true);
-renderOpts('opts-exp',    EXPERIENCE_OPTIONS, false);
+function onText(i, v){ state[i] = v; }
 
 // ===== ナビゲーション =====
-function show(id) {
-  ['v-age','v-gender','v-q1','v-q2','v-q3','v-done'].forEach(v => {
-    document.getElementById(v).classList.toggle('on', v === id);
+function go(i){
+  ['v-done'].concat(QS.map((_,k) => 'v-' + k)).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', id === ('v-' + i));
   });
+  cur = i;
 }
 
-function goAge()    { show('v-age'); }
-function goGender() { if (selAge)         show('v-gender'); }
-function goQ1()     { if (selGender)      show('v-q1'); }
-function goQ2()     { if (selRef.size > 0) show('v-q2'); }
-function goQ3()     { if (selMot.size > 0) show('v-q3'); }
+function next(i){
+  const q = QS[i];
+  if (q.type === 'single' && !state[i]) return;
+  if (q.type === 'multi' && state[i].size === 0) return;
+  if (i < QS.length - 1) go(i + 1);
+  else doSubmit();
+}
 
 // ===== 送信 =====
-function doSubmit() {
-  const btn = document.getElementById('btn-submit');
-  btn.disabled = true;
-  btn.textContent = '送信中...';
+function doSubmit(){
+  const btn = document.getElementById('next-' + (QS.length - 1));
+  if (btn){ btn.disabled = true; btn.textContent = '送信中...'; }
 
-  const params = new URLSearchParams({
-    age:        selAge,
-    gender:     selGender,
-    referral:   Array.from(selRef).join(','),
-    motive:     Array.from(selMot).join(','),
-    experience: selExp
+  // 旧GAS（再デプロイ前）でも既存5問を記録できるよう、旧パラメータ名も併走送信する。
+  // 新GASでは q_<id> が優先され重複しない。
+  const LEGACY_IDS = { age:'age', gender:'gender', referral:'referral', motive:'motive', experience:'experience' };
+
+  const params = new URLSearchParams();
+  QS.forEach((q, i) => {
+    let v = '';
+    if (q.type === 'multi') v = Array.from(state[i]).join(',');
+    else v = state[i] || '';
+    if (v !== '') {
+      params.append('q_' + q.id, v);
+      if (LEGACY_IDS[q.id]) params.append(LEGACY_IDS[q.id], v);
+    }
   });
 
   const beacon = new Image();
@@ -329,13 +270,14 @@ function doSubmit() {
   setTimeout(startRedirect, 3000);
 }
 
-function startRedirect() {
-  show('v-done');
+let redirected = false;
+function startRedirect(){
+  if (redirected) return; redirected = true;
+  go('done');
   let n = 3;
   const el = document.getElementById('cnt');
   const t = setInterval(() => {
-    n--;
-    el.textContent = n;
+    n--; el.textContent = n;
     if (n <= 0) { clearInterval(t); window.location.href = PPP_URL; }
   }, 1000);
 }
