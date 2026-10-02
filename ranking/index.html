@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>月間ランキング | YORIMICHI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<!--
+  STUDIO の Embed ボックスに iframe で埋め込む月間ランキング。
+  データ元: 🌐HP公開用ランキング（自動・編集禁止）シート。今月/先月の切替はシート側が日付で自動判定。
+  ?tab=ring|tournament で初期タブ指定可。
+-->
+<style>
+  :root {
+    --main: #3E3A39; --accent: #E63B10; --sub: #EFEFEF; --base: #ffffff;
+    --muted: #8a8583; --gold: #C9A227; --silver: #9EA3A8; --bronze: #B07A4A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--base); color: var(--main); font-family: "Noto Sans JP", sans-serif; font-size: 15px; line-height: 1.5; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--sub); padding: 4px; border-radius: 999px; }
+  .tabs button { border: 0; background: transparent; color: var(--main); font: inherit; font-weight: 700; padding: 10px 0; border-radius: 999px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--main); color: #fff; }
+  .bar { display: flex; justify-content: space-between; align-items: center; margin: 16px 2px 8px; }
+  .month { font-size: 20px; font-weight: 900; }
+  .period { display: flex; gap: 4px; }
+  .period button { border: 1px solid var(--main); background: #fff; color: var(--main); font: inherit; font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .period button[aria-pressed="true"] { background: var(--main); color: #fff; }
+  .rule { font-size: 12px; color: var(--muted); margin: 0 2px 10px; }
+  ol { list-style: none; }
+  li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 12px 6px; border-bottom: 1px solid var(--sub); }
+  li .rk { font-weight: 900; font-size: 18px; text-align: center; }
+  li .nm { font-weight: 700; overflow-wrap: anywhere; }
+  li .pz { display: block; font-size: 12px; font-weight: 700; color: var(--accent); }
+  li .pt { font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  li.r1 .rk { color: var(--gold); } li.r2 .rk { color: var(--silver); } li.r3 .rk { color: var(--bronze); }
+  li.r1 { background: #FBF6E6; }
+  .empty { padding: 32px 8px; text-align: center; color: var(--muted); }
+  .more { display: block; width: 100%; margin-top: 10px; border: 0; background: var(--sub); color: var(--main); font: inherit; font-weight: 700; padding: 10px; border-radius: 8px; cursor: pointer; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 12px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs" role="tablist">
+    <button role="tab" data-kind="ring" aria-selected="true">リングゲーム</button>
+    <button role="tab" data-kind="tournament" aria-selected="false">トーナメント</button>
+  </div>
+  <div class="bar">
+    <div class="month" id="month">　</div>
+    <div class="period">
+      <button data-when="now" aria-pressed="true">今月</button>
+      <button data-when="prev" aria-pressed="false">先月</button>
+    </div>
+  </div>
+  <p class="rule" id="rule"></p>
+  <ol id="list"><li class="empty" style="display:block">読み込み中…</li></ol>
+  <button class="more" id="more" hidden>もっと見る</button>
+  <p class="foot" id="foot"></p>
+</div>
+<script>
+(function () {
+  var SHEET = '1P7dxq_ZQofj1Xpr9insbkYRyIXEpfKQBJAEcMK1E80E';
+  var TABS = { ring: { now: 'リング_今月', prev: 'リング_先月' }, tournament: { now: 'トナメ_今月', prev: 'トナメ_先月' } };
+  var RULES = {
+    ring: '100NL以上のリングゲームで、バイインに対して持ち帰ったチップがどれだけ増えたか（純増）の月間合計。※50NLは対象外',
+    tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
+  };
+  var UNIT = { ring: ' pts', tournament: ' pt' };
+  var RING_PRIZES = ['Y$ 10,000', 'Y$ 5,000', 'Y$ 3,000', 'Y$ 2,000', 'Y$ 1,000'];
+  var SHOW = 10;
+  var state = { kind: 'ring', when: 'now', all: false };
+  var cache = {};
+
+  var q = new URLSearchParams(location.search);
+  if (q.get('tab') === 'tournament') state.kind = 'tournament';
+
+  function parseCSV(text) {
+    var rows = [], row = [], cell = '', inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cell += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else if (ch !== '\r') cell += ch;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  // シートの形: 1行目=年月、2行目以降=順位,名前,値
+  function toRanking(rows) {
+    var month = (rows[0] && rows[0][0]) || '';
+    var list = [];
+    rows.slice(1).forEach(function (r) {
+      var name = (r[1] || '').trim();
+      var val = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
+      if (!name || name === '集計中' || !isFinite(val) || val <= 0) return;
+      list.push({ name: name, val: val });
+    });
+    list.sort(function (a, b) { return b.val - a.val; });
+    return { month: month, list: list };
+  }
+
+  function load(tab) {
+    if (cache[tab]) return Promise.resolve(cache[tab]);
+    var url = 'https://docs.google.com/spreadsheets/d/' + SHEET + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent(tab);
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    }).then(function (t) { return (cache[tab] = toRanking(parseCSV(t))); });
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function render(data) {
+    document.getElementById('month').textContent = data.month ? data.month + 'のランキング' : '　';
+    document.getElementById('rule').textContent = RULES[state.kind];
+    var el = document.getElementById('list'), more = document.getElementById('more');
+    if (!data.list.length) {
+      el.innerHTML = '<li class="empty" style="display:block">' + (state.when === 'now' ? '今月の集計はこれからです。ぜひご参加ください！' : 'データがありません') + '</li>';
+      more.hidden = true; return;
+    }
+    var rank = 0, prev = null;
+    var items = data.list.map(function (p, i) {
+      if (p.val !== prev) { rank = i + 1; prev = p.val; }
+      return { rank: rank, p: p };
+    });
+    var shown = state.all ? items : items.slice(0, SHOW);
+    el.innerHTML = shown.map(function (x) {
+      var prize = state.kind === 'ring' && x.rank <= RING_PRIZES.length ? '<span class="pz">プライズ ' + RING_PRIZES[x.rank - 1] + '</span>' : '';
+      return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) + prize +
+             '</span><span class="pt">' + (state.kind === 'ring' ? '+' : '') + x.p.val.toLocaleString() + UNIT[state.kind] + '</span></li>';
+    }).join('');
+    more.hidden = state.all || items.length <= SHOW;
+  }
+
+  function refresh() {
+    document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.kind === state.kind); });
+    document.querySelectorAll('.period button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.when === state.when); });
+    load(TABS[state.kind][state.when]).then(render).catch(function () {
+      document.getElementById('list').innerHTML = '<li class="empty" style="display:block">読み込みに失敗しました。時間をおいて再度お試しください。</li>';
+    });
+    document.getElementById('foot').textContent = '自動更新（約5分ごと）';
+  }
+
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () { state.kind = b.dataset.kind; state.all = false; refresh(); });
+  });
+  document.querySelectorAll('.period button').forEach(function (b) {
+    b.addEventListener('click', function () { state.when = b.dataset.when; state.all = false; refresh(); });
+  });
+  document.getElementById('more').addEventListener('click', function () { state.all = true; refresh(); });
+  setInterval(function () { cache = {}; refresh(); }, 5 * 60 * 1000);
+  refresh();
+})();
+</script>
+</body>
+</html>
