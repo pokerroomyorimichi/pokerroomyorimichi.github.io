@@ -11,6 +11,7 @@
   STUDIO の Embed ボックスに iframe で埋め込む月間ランキング。
   データ元: 🌐HP公開用ランキング（自動・編集禁止）シート。今月/先月の切替はシート側が日付で自動判定。
   ?tab=ring|tournament で初期タブ指定可。
+  ?only=ring|tournament を付けるとタブを隠し、その種目だけを表示（STUDIOのリング欄に単独で埋め込む用途）。
 -->
 <style>
   :root {
@@ -76,6 +77,13 @@
 
   var q = new URLSearchParams(location.search);
   if (q.get('tab') === 'tournament') state.kind = 'tournament';
+  // only=ring|tournament : タブを隠して単一種目のみ表示（STUDIO個別欄への埋め込み用）
+  var only = q.get('only');
+  if (only === 'ring' || only === 'tournament') {
+    state.kind = only;
+    var tabsEl = document.querySelector('.tabs');
+    if (tabsEl) tabsEl.style.display = 'none';
+  }
 
   function parseCSV(text) {
     var rows = [], row = [], cell = '', inQ = false;
