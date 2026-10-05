@@ -70,7 +70,6 @@
     tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
   };
   var UNIT = { ring: ' pts', tournament: ' pt' };
-  var RING_PRIZES = ['Y$ 10,000', 'Y$ 5,000', 'Y$ 3,000', 'Y$ 2,000', 'Y$ 1,000'];
   var SHOW = 10;
   var state = { kind: 'ring', when: 'now', all: false };
   var cache = {};
@@ -142,8 +141,7 @@
     });
     var shown = state.all ? items : items.slice(0, SHOW);
     el.innerHTML = shown.map(function (x) {
-      var prize = state.kind === 'ring' && x.rank <= RING_PRIZES.length ? '<span class="pz">プライズ ' + RING_PRIZES[x.rank - 1] + '</span>' : '';
-      return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) + prize +
+      return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) +
              '</span><span class="pt">' + (state.kind === 'ring' ? '+' : '') + x.p.val.toLocaleString() + UNIT[state.kind] + '</span></li>';
     }).join('');
     more.hidden = state.all || items.length <= SHOW;
