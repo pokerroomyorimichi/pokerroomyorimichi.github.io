@@ -66,10 +66,10 @@
   var SHEET = '1P7dxq_ZQofj1Xpr9insbkYRyIXEpfKQBJAEcMK1E80E';
   var TABS = { ring: { now: 'リング_今月', prev: 'リング_先月' }, tournament: { now: 'トナメ_今月', prev: 'トナメ_先月' } };
   var RULES = {
-    ring: '100NL以上のリングゲームで、バイインに対して持ち帰ったチップがどれだけ増えたか（純増）の月間合計。※50NLは対象外',
+    ring: '100NLのリングゲームで、バイインに対して持ち帰ったチップがどれだけ増えたか（純増）の月間合計を、BB（SB50/BB100）に換算して表示。※50NLは対象外',
     tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
   };
-  var UNIT = { ring: ' pts', tournament: ' pt' };
+  var UNIT = { ring: ' BB', tournament: ' pt' };
   var SHOW = 10;
   var state = { kind: 'ring', when: 'now', all: false };
   var cache = {};
@@ -142,7 +142,7 @@
     var shown = state.all ? items : items.slice(0, SHOW);
     el.innerHTML = shown.map(function (x) {
       return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) +
-             '</span><span class="pt">' + (state.kind === 'ring' ? '+' : '') + x.p.val.toLocaleString() + UNIT[state.kind] + '</span></li>';
+             '</span><span class="pt">' + (state.kind === 'ring' ? '+' + x.p.val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : x.p.val.toLocaleString()) + UNIT[state.kind] + '</span></li>';
     }).join('');
     more.hidden = state.all || items.length <= SHOW;
   }
