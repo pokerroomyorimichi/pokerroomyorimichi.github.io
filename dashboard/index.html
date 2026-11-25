@@ -9,7 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0d0d12;--surface:#16161f;--surface2:#1e1e2a;--surface3:#252535;
-  --red:#E63B10;--red2:#ff5733;--red-dim:rgba(230,59,16,.15);
+  --red:#E43A11;--red2:#ff5733;--red-dim:rgba(228,58,17,.15);
   --text:#f0f0f5;--sub:#8888a0;--sub2:#555568;
   --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
   --border:rgba(255,255,255,.07);
@@ -59,7 +59,7 @@ body{font-family:-apple-system,'Noto Sans JP',sans-serif;background:var(--bg);co
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
 .badge-green{background:rgba(34,197,94,.15);color:var(--green)}
 .badge-amber{background:rgba(245,158,11,.15);color:var(--amber)}
-.badge-red{background:rgba(230,59,16,.15);color:var(--red2)}
+.badge-red{background:rgba(228,58,17,.15);color:var(--red2)}
 .badge-blue{background:rgba(59,130,246,.15);color:var(--blue)}
 
 /* ===== SECTION LABEL ===== */
@@ -184,7 +184,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyiC7MvEYZYfWblV1ov3Fe6
 // ================================================================
 
 const COLOR = {
-  red:    '#E63B10', red2: '#ff5733', redA: 'rgba(230,59,16,.25)',
+  red:    '#E43A11', red2: '#ff5733', redA: 'rgba(228,58,17,.25)',
   green:  '#22c55e', greenA: 'rgba(34,197,94,.2)',
   amber:  '#f59e0b', amberA: 'rgba(245,158,11,.2)',
   blue:   '#3b82f6', blueA:  'rgba(59,130,246,.2)',
@@ -572,7 +572,7 @@ function renderBreakdown(res, months) {
   const totalSales = tot.total || 1;
 
   const catDefs = [
-    { key:'game',  label:'ゲーム系',  color:'#E63B10', note:'入場料・体験会・チップ・トナメ' },
+    { key:'game',  label:'ゲーム系',  color:'#E43A11', note:'入場料・体験会・チップ・トナメ' },
     { key:'drink', label:'飲食系',    color:'#3b82f6', note:'ドリンク・フード' },
     { key:'other', label:'その他',    color:'#f59e0b', note:'その他・販売' },
     { key:'rake',  label:'収益調整',  color:'#22c55e', note:'レーキ・コミッション・PD' },
@@ -594,7 +594,7 @@ function renderBreakdown(res, months) {
   }).join('');
 
   const detailDefs = [
-    ['chip',      'チップ(リング)',  '#E63B10'],
+    ['chip',      'チップ(リング)',  '#E43A11'],
     ['toname',    'トーナメント',    '#ff5733'],
     ['nyujo',     '入場料',         '#fb923c'],
     ['taiken',    '体験会',         '#fbbf24'],
