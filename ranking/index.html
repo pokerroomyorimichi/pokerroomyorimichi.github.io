@@ -70,19 +70,10 @@
     tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
   };
   var UNIT = { ring: ' pt', tournament: ' pt' };
+  var RING_COEFF = Math.sqrt(3) / 27;
   var SHOW = 10;
   var state = { kind: 'ring', when: 'now', all: false };
   var cache = {};
-  var ringCoeff = Math.sqrt(3); // フォールバック値
-
-  // 📘仕組み!B26 から係数を取得
-  (function loadCoeff() {
-    var url = 'https://docs.google.com/spreadsheets/d/' + SHEET + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent('📘仕組み') + '&range=B26';
-    fetch(url).then(function (r) { return r.ok ? r.text() : Promise.reject(); }).then(function (t) {
-      var v = parseFloat(t.replace(/["\s]/g, ''));
-      if (isFinite(v) && v > 0) ringCoeff = v;
-    }).then(function () { cache = {}; refresh(); }).catch(function () { /* フォールバックのまま */ });
-  })();
 
   var q = new URLSearchParams(location.search);
   if (q.get('tab') === 'tournament') state.kind = 'tournament';
@@ -119,7 +110,7 @@
       var name = (r[1] || '').trim();
       var raw = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
       if (!name || name === '集計中' || !isFinite(raw) || raw <= 0) return;
-      var val = applyCoeff ? Math.ceil(raw * ringCoeff) : raw;
+      var val = applyCoeff ? Math.ceil(raw * RING_COEFF) : raw;
       list.push({ name: name, val: val });
     });
     list.sort(function (a, b) { return b.val - a.val; });
@@ -153,7 +144,7 @@
     var shown = state.all ? items : items.slice(0, SHOW);
     el.innerHTML = shown.map(function (x) {
       return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) +
-             '</span><span class="pt">+' + x.p.val.toLocaleString() + UNIT[state.kind] + '</span></li>';
+             '</span><span class="pt">' + (state.kind === 'ring' ? '+' + x.p.val.toLocaleString() : x.p.val.toLocaleString()) + UNIT[state.kind] + '</span></li>';
     }).join('');
     more.hidden = state.all || items.length <= SHOW;
   }
