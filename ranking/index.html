@@ -66,10 +66,11 @@
   var SHEET = '1P7dxq_ZQofj1Xpr9insbkYRyIXEpfKQBJAEcMK1E80E';
   var TABS = { ring: { now: 'リング_今月', prev: 'リング_先月' }, tournament: { now: 'トナメ_今月', prev: 'トナメ_先月' } };
   var RULES = {
-    ring: '100NLのリングゲームで、バイインに対して持ち帰ったチップがどれだけ増えたか（純増）の月間合計を、BB（SB50/BB100）に換算して表示。※50NLは対象外',
+    ring: '100NLのリングゲームの結果を、当店独自のポイントに換算して表示。※50NLは対象外',
     tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
   };
-  var UNIT = { ring: ' BB', tournament: ' pt' };
+  var UNIT = { ring: ' pt', tournament: ' pt' };
+  var RING_COEFF = Math.sqrt(3) / 7;
   var SHOW = 10;
   var state = { kind: 'ring', when: 'now', all: false };
   var cache = {};
@@ -102,26 +103,27 @@
   }
 
   // シートの形: 1行目=年月、2行目以降=順位,名前,値
-  function toRanking(rows) {
+  function toRanking(rows, applyCoeff) {
     var month = (rows[0] && rows[0][0]) || '';
     var list = [];
     rows.slice(1).forEach(function (r) {
       var name = (r[1] || '').trim();
-      var val = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
-      if (!name || name === '集計中' || !isFinite(val) || val <= 0) return;
+      var raw = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
+      if (!name || name === '集計中' || !isFinite(raw) || raw <= 0) return;
+      var val = applyCoeff ? Math.ceil(raw * RING_COEFF) : raw;
       list.push({ name: name, val: val });
     });
     list.sort(function (a, b) { return b.val - a.val; });
     return { month: month, list: list };
   }
 
-  function load(tab) {
+  function load(tab, applyCoeff) {
     if (cache[tab]) return Promise.resolve(cache[tab]);
     var url = 'https://docs.google.com/spreadsheets/d/' + SHEET + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent(tab);
     return fetch(url).then(function (r) {
       if (!r.ok) throw new Error(r.status);
       return r.text();
-    }).then(function (t) { return (cache[tab] = toRanking(parseCSV(t))); });
+    }).then(function (t) { return (cache[tab] = toRanking(parseCSV(t), applyCoeff)); });
   }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -142,7 +144,7 @@
     var shown = state.all ? items : items.slice(0, SHOW);
     el.innerHTML = shown.map(function (x) {
       return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) +
-             '</span><span class="pt">' + (state.kind === 'ring' ? '+' + x.p.val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : x.p.val.toLocaleString()) + UNIT[state.kind] + '</span></li>';
+             '</span><span class="pt">' + (state.kind === 'ring' ? '+' + x.p.val.toLocaleString() : x.p.val.toLocaleString()) + UNIT[state.kind] + '</span></li>';
     }).join('');
     more.hidden = state.all || items.length <= SHOW;
   }
@@ -150,7 +152,7 @@
   function refresh() {
     document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.kind === state.kind); });
     document.querySelectorAll('.period button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.when === state.when); });
-    load(TABS[state.kind][state.when]).then(render).catch(function () {
+    load(TABS[state.kind][state.when], state.kind === 'ring').then(render).catch(function () {
       document.getElementById('list').innerHTML = '<li class="empty" style="display:block">読み込みに失敗しました。時間をおいて再度お試しください。</li>';
     });
     document.getElementById('foot').textContent = '自動更新（約5分ごと）';
