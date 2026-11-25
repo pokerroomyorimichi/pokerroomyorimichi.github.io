@@ -66,7 +66,7 @@
   var SHEET = '1P7dxq_ZQofj1Xpr9insbkYRyIXEpfKQBJAEcMK1E80E';
   var TABS = { ring: { now: 'リング_今月', prev: 'リング_先月' }, tournament: { now: 'トナメ_今月', prev: 'トナメ_先月' } };
   var RULES = {
-    ring: '100NLのリングゲームの結果を、当店独自のポイントに換算して表示。※50NLは対象外',
+    ring: '50NL・100NL・200NLのリングゲームのチップ増減を合計し、当店独自のポイントに換算して表示します。同じ増減でも、高いレートのほうが大きく反映されます。500NLは対象外です。',
     tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
   };
   var UNIT = { ring: ' pt', tournament: ' pt' };
@@ -102,6 +102,12 @@
     return rows;
   }
 
+  // スタッフ判定: 名前に @YORIMICHI_（誤記の @YOROMICHI_ も含む）がある人を除外する。
+  // 先頭一致ではなく部分一致。除外後に並べ替えて順位を付け直す。
+  function isStaffName(name) {
+    return /@YOR[IO]MICHI_/i.test(name);
+  }
+
   // シートの形: 1行目=年月、2行目以降=順位,名前,値
   function toRanking(rows, applyCoeff) {
     var month = (rows[0] && rows[0][0]) || '';
@@ -110,6 +116,7 @@
       var name = (r[1] || '').trim();
       var raw = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
       if (!name || name === '集計中' || !isFinite(raw) || raw <= 0) return;
+      if (isStaffName(name)) return;
       var val = applyCoeff ? Math.ceil(raw * RING_COEFF) : raw;
       list.push({ name: name, val: val });
     });
