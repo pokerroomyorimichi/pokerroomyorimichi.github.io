@@ -15,7 +15,7 @@
 -->
 <style>
   :root {
-    --main: #3E3A39; --accent: #E63B10; --sub: #EFEFEF; --base: #ffffff;
+    --main: #3E3A39; --accent: #E43A11; --sub: #EFEFEF; --base: #ffffff;
     --muted: #8a8583; --gold: #C9A227; --silver: #9EA3A8; --bronze: #B07A4A;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,7 +29,7 @@
   .period { display: flex; gap: 4px; }
   .period button { border: 1px solid var(--main); background: #fff; color: var(--main); font: inherit; font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
   .period button[aria-pressed="true"] { background: var(--main); color: #fff; }
-  .rule { font-size: 12px; color: var(--muted); margin: 0 2px 10px; }
+  .rule { display: none; } /* 説明文はSTUDIO側に置く。埋め込みでは出さない */
   ol { list-style: none; }
   li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 12px 6px; border-bottom: 1px solid var(--sub); }
   li .rk { font-weight: 900; font-size: 18px; text-align: center; }
@@ -65,10 +65,6 @@
 (function () {
   var SHEET = '1P7dxq_ZQofj1Xpr9insbkYRyIXEpfKQBJAEcMK1E80E';
   var TABS = { ring: { now: 'リング_今月', prev: 'リング_先月' }, tournament: { now: 'トナメ_今月', prev: 'トナメ_先月' } };
-  var RULES = {
-    ring: '50NL・100NL・200NLのリングゲームのチップ増減を合計し、当店独自のポイントに換算して表示します。同じ増減でも、高いレートのほうが大きく反映されます。500NLは対象外です。',
-    tournament: '入賞順位 × エントリー数 × 参加費レートで算出したポイントの月間合計'
-  };
   var UNIT = { ring: ' pt', tournament: ' pt' };
   var RING_COEFF = Math.sqrt(3) / 7;
   var SHOW = 10;
@@ -137,7 +133,8 @@
 
   function render(data) {
     document.getElementById('month').textContent = data.month ? data.month + 'のランキング' : '　';
-    document.getElementById('rule').textContent = RULES[state.kind];
+    var ruleEl = document.getElementById('rule');
+    if (ruleEl) ruleEl.textContent = '';
     var el = document.getElementById('list'), more = document.getElementById('more');
     if (!data.list.length) {
       el.innerHTML = '<li class="empty" style="display:block">' + (state.when === 'now' ? '今月の集計はこれからです。ぜひご参加ください！' : 'データがありません') + '</li>';
@@ -151,7 +148,7 @@
     var shown = state.all ? items : items.slice(0, SHOW);
     el.innerHTML = shown.map(function (x) {
       return '<li class="r' + x.rank + '"><span class="rk">' + x.rank + '</span><span class="nm">' + esc(x.p.name) +
-             '</span><span class="pt">' + (state.kind === 'ring' ? '+' + x.p.val.toLocaleString() : x.p.val.toLocaleString()) + UNIT[state.kind] + '</span></li>';
+             '</span><span class="pt">' + x.p.val.toLocaleString() + UNIT[state.kind] + '</span></li>';
     }).join('');
     more.hidden = state.all || items.length <= SHOW;
   }
