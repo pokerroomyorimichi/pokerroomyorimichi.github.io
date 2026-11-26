@@ -102,21 +102,21 @@
     return rows;
   }
 
-  // スタッフ判定: 名前に @YORIMICHI_（誤記の @YOROMICHI_ も含む）がある人を除外する。
-  // 先頭一致ではなく部分一致。除外後に並べ替えて順位を付け直す。
+  // スタッフ判定: 名前に @YORIMICHI_（誤記の @YOROMICHI_ も含む）がある人。
+  // 先頭一致ではなく部分一致。リングのみ除外し、除外後に並べ替えて順位を付け直す。トナメは除外しない。
   function isStaffName(name) {
     return /@YOR[IO]MICHI_/i.test(name);
   }
 
   // シートの形: 1行目=年月、2行目以降=順位,名前,値
-  function toRanking(rows, applyCoeff) {
+  function toRanking(rows, applyCoeff, excludeStaff) {
     var month = (rows[0] && rows[0][0]) || '';
     var list = [];
     rows.slice(1).forEach(function (r) {
       var name = (r[1] || '').trim();
       var raw = Number(String(r[2] || '').replace(/[^\d.-]/g, ''));
       if (!name || name === '集計中' || !isFinite(raw) || raw <= 0) return;
-      if (isStaffName(name)) return;
+      if (excludeStaff && isStaffName(name)) return;
       var val = applyCoeff ? Math.ceil(raw * RING_COEFF) : raw;
       list.push({ name: name, val: val });
     });
@@ -124,13 +124,13 @@
     return { month: month, list: list };
   }
 
-  function load(tab, applyCoeff) {
+  function load(tab, applyCoeff, excludeStaff) {
     if (cache[tab]) return Promise.resolve(cache[tab]);
     var url = 'https://docs.google.com/spreadsheets/d/' + SHEET + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent(tab);
     return fetch(url).then(function (r) {
       if (!r.ok) throw new Error(r.status);
       return r.text();
-    }).then(function (t) { return (cache[tab] = toRanking(parseCSV(t), applyCoeff)); });
+    }).then(function (t) { return (cache[tab] = toRanking(parseCSV(t), applyCoeff, excludeStaff)); });
   }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -159,7 +159,7 @@
   function refresh() {
     document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.kind === state.kind); });
     document.querySelectorAll('.period button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.when === state.when); });
-    load(TABS[state.kind][state.when], state.kind === 'ring').then(render).catch(function () {
+    load(TABS[state.kind][state.when], state.kind === 'ring', state.kind === 'ring').then(render).catch(function () {
       document.getElementById('list').innerHTML = '<li class="empty" style="display:block">読み込みに失敗しました。時間をおいて再度お試しください。</li>';
     });
     document.getElementById('foot').textContent = '自動更新（約5分ごと）';
